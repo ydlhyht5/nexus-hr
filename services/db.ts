@@ -11,7 +11,8 @@ const getEnv = () => {
 };
 
 const env = getEnv();
-const API_BASE_URL = env.VITE_API_URL || 'http://localhost:8787';
+// const API_BASE_URL = env.VITE_API_URL || 'http://localhost:8787';
+const API_BASE_URL = 'https://nexus-api.ydlhyht5.workers.dev' || 'http://localhost:8787';
 
 const DB_NAME = 'NexusHR_DB';
 const DB_VERSION = 2;
