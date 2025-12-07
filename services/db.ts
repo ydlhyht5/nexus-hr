@@ -1,7 +1,7 @@
 import { Employee, LeaveRequest, SalaryRecord } from '../types';
 
 // Safe access to environment variables
-const getEnv = () => {
+const getEnv = (): any => {
   try {
     // @ts-ignore
     return (import.meta && import.meta.env) ? import.meta.env : {};
@@ -11,8 +11,8 @@ const getEnv = () => {
 };
 
 const env = getEnv();
-// const API_BASE_URL = env.VITE_API_URL || 'http://localhost:8787';
-const API_BASE_URL = 'https://nexus-api.ydlhyht5.workers.dev' || 'http://localhost:8787';
+// Use the provided production URL as the default fallback
+const API_BASE_URL = env.VITE_API_URL || 'https://nexus-api.ydlhyht5.workers.dev';
 
 const DB_NAME = 'NexusHR_DB';
 const DB_VERSION = 2;
@@ -98,17 +98,11 @@ class DatabaseService {
 
   async init(): Promise<void> {
     try {
-      const env = getEnv();
-      if (!env.VITE_API_URL) {
-          console.log("No API URL configured, using LOCAL mode.");
-          this.mode = 'LOCAL';
-          return;
-      }
-
       // Try to ping the backend
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 2000); 
       
+      console.log(`Attempting to connect to backend: ${API_BASE_URL}`);
       const res = await fetch(`${API_BASE_URL}/health`, { signal: controller.signal });
       clearTimeout(timeoutId);
       
@@ -119,7 +113,7 @@ class DatabaseService {
         throw new Error("Health check returned non-200");
       }
     } catch (e) {
-      console.warn("⚠️ Backend unavailable, switching to Local Mode (IndexedDB)");
+      console.warn("⚠️ Backend unavailable, switching to Local Mode (IndexedDB)", e);
       this.mode = 'LOCAL';
     }
   }
