@@ -1,4 +1,3 @@
-
 export enum UserRole {
   ADMIN = 'ADMIN',
   EMPLOYEE = 'EMPLOYEE'
@@ -16,10 +15,15 @@ export enum LeaveStatus {
   REJECTED = 'REJECTED'
 }
 
-export interface Employee {
+// Base interface for syncable items
+export interface Syncable {
+  synced?: boolean; // false = pending upload, true/undefined = synced
+}
+
+export interface Employee extends Syncable {
   id: string; // Generated: Pinyin initials + MMDD
   name: string;
-  jobTitle: string; // Added field for "Role" / Position
+  jobTitle: string; 
   gender: Gender;
   joinDate: string; // YYYY-MM-DD
   probationSalary: number;
@@ -29,27 +33,27 @@ export interface Employee {
   isFirstLogin: boolean;
 }
 
-export interface LeaveRequest {
+export interface LeaveRequest extends Syncable {
   id: string;
   employeeId: string;
   employeeName: string;
   startDate: string;
   endDate: string;
-  days: number; // Added duration in days
+  days: number; 
   reason: string;
   status: LeaveStatus;
-  createdAt: number; // Timestamp for 6-hour check
+  createdAt: number; 
   rejectionReason?: string;
 }
 
-export interface SalaryRecord {
+export interface SalaryRecord extends Syncable {
   id: string; // composite: empId_YYYY-MM
   employeeId: string;
   employeeName: string;
   month: string; // YYYY-MM
   basicSalary: number;
   salesAmount: number;
-  bonusRate: number; // percentage (e.g., 3 for 3%)
+  bonusRate: number; 
   bonusAmount: number;
   totalSalary: number;
   updatedAt: number;
