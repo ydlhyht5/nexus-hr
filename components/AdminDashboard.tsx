@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Employee, Gender, LeaveRequest, LeaveStatus, SalaryRecord } from '../types';
-import { Card, NeonCard, Button, Input, Select, Badge, Modal, ToastContainer, ToastType } from './UI';
+import { Card, NeonCard, Button, Input, Select, Badge, Modal, ToastContainer, ToastType, BarChart } from './UI';
 import { generatePinyinInitials } from '../services/geminiService';
-import { UserPlus, Calendar, Check, X, Pencil, Calculator, Save, User, KeyRound, Briefcase, DollarSign, Clock, Trash2, LockKeyhole, AlertTriangle } from 'lucide-react';
+import { UserPlus, Calendar, Check, X, Pencil, Calculator, Save, User, KeyRound, Briefcase, DollarSign, Clock, Trash2, LockKeyhole, AlertTriangle, BarChart3, TrendingUp } from 'lucide-react';
 
 interface AdminDashboardProps {
   employees: Employee[];
@@ -20,18 +20,26 @@ interface AdminDashboardProps {
 }
 
 // --- Helper Functions ---
-const getSalaryStatus = (emp: Employee, monthStr: string): 'NOT_JOINED' | 'PROBATION' | 'OFFICIAL' => {
+
+// Get previous month string (e.g., input "2025-12" -> output "2025-11")
+const getPreviousMonth = (monthStr: string): string => {
+    const [year, month] = monthStr.split('-').map(Number);
+    const date = new Date(year, month - 2, 1); // JS Month is 0-indexed, so -1 is current, -2 is previous
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+};
+
+const getSalaryStatus = (emp: Employee, workMonthStr: string): 'NOT_JOINED' | 'PROBATION' | 'OFFICIAL' => {
   if (!emp.joinDate) return 'PROBATION'; 
   
   // Calculate Join Month
   const joinDate = new Date(emp.joinDate);
   const joinYearMonth = joinDate.getFullYear() * 12 + joinDate.getMonth();
   
-  // Calculate Selected Month
-  const selectedDate = new Date(monthStr + '-01');
-  const selectedYearMonth = selectedDate.getFullYear() * 12 + selectedDate.getMonth();
+  // Calculate Work Month
+  const workDate = new Date(workMonthStr + '-01');
+  const workYearMonth = workDate.getFullYear() * 12 + workDate.getMonth();
 
-  if (selectedYearMonth < joinYearMonth) {
+  if (workYearMonth < joinYearMonth) {
       return 'NOT_JOINED';
   }
 
@@ -40,7 +48,7 @@ const getSalaryStatus = (emp: Employee, monthStr: string): 'NOT_JOINED' | 'PROBA
   probationEnd.setMonth(joinDate.getMonth() + emp.probationMonths);
   const probationTime = probationEnd.getFullYear() * 12 + probationEnd.getMonth();
   
-  return selectedYearMonth < probationTime ? 'PROBATION' : 'OFFICIAL';
+  return workYearMonth < probationTime ? 'PROBATION' : 'OFFICIAL';
 };
 
 // Calculate approved leave days falling within the specific month
@@ -82,17 +90,17 @@ const calculatePayableWorkDays = (emp: Employee, monthStr: string): number => {
     const daysInMonth = new Date(year, month, 0).getDate();
     
     const joinDate = new Date(emp.joinDate);
-    const selectedDate = new Date(monthStr + '-01');
+    const workDate = new Date(monthStr + '-01');
 
-    // If joined in a future month, 0 days
+    // If joined in a future month relative to work month, 0 days
     if (joinDate > new Date(year, month, 0)) return 0;
     
-    // If joined before this month, full standard days
+    // If joined before this work month, full standard days
     if (joinDate < new Date(year, month - 1, 1)) {
         return STANDARD_WORK_DAYS;
     }
 
-    // Joined during this month
+    // Joined during this work month
     const joinDay = joinDate.getDate();
     const activeCalendarDays = daysInMonth - joinDay + 1;
     
@@ -105,24 +113,27 @@ const calculatePayableWorkDays = (emp: Employee, monthStr: string): number => {
 // --- Salary Row Component ---
 const SalaryRow: React.FC<{
   emp: Employee;
-  selectedMonth: string;
+  payoutMonth: string; // The selected month in the UI (e.g. 2025-12)
+  workMonth: string;   // The calculated previous month (e.g. 2025-11)
   salaryRecords: SalaryRecord[];
   leaveRequests: LeaveRequest[];
   onSaveSalary: (record: SalaryRecord) => void;
   addToast: (msg: string, type: ToastType) => void;
-}> = ({ emp, selectedMonth, salaryRecords, leaveRequests, onSaveSalary, addToast }) => {
-  const recordId = `${emp.id}_${selectedMonth}`;
+}> = ({ emp, payoutMonth, workMonth, salaryRecords, leaveRequests, onSaveSalary, addToast }) => {
+  // We check for existing records using the PAYOUT month ID
+  const recordId = `${emp.id}_${payoutMonth}`;
   const existingRecord = salaryRecords.find(r => r.id === recordId);
   
-  const status = getSalaryStatus(emp, selectedMonth);
+  // We calculate stats based on the WORK month
+  const status = getSalaryStatus(emp, workMonth);
   const isNotJoined = status === 'NOT_JOINED';
   
   // 1. Determine Full Base Salary (Probation or Official)
   const baseRate = status === 'PROBATION' ? emp.probationSalary : emp.fullSalary;
   
-  // 2. Calculate Working Days Stats
-  const standardPayableDays = isNotJoined ? 0 : calculatePayableWorkDays(emp, selectedMonth);
-  const leaveDays = isNotJoined ? 0 : calculateLeaveDaysInMonth(leaveRequests, emp.id, selectedMonth);
+  // 2. Calculate Working Days Stats (based on Work Month)
+  const standardPayableDays = isNotJoined ? 0 : calculatePayableWorkDays(emp, workMonth);
+  const leaveDays = isNotJoined ? 0 : calculateLeaveDaysInMonth(leaveRequests, emp.id, workMonth);
   const actualPayableDays = Math.max(0, standardPayableDays - leaveDays);
 
   // 3. Calculate Actual Base Salary
@@ -130,19 +141,21 @@ const SalaryRow: React.FC<{
   const dailyRate = baseRate / 24;
   const calculatedBaseSalary = isNotJoined ? 0 : (dailyRate * actualPayableDays);
 
+  // Initialize state
   const [sales, setSales] = useState(isNotJoined ? '0' : (existingRecord?.salesAmount?.toString() || ''));
   const [rate, setRate] = useState(isNotJoined ? '0' : (existingRecord?.bonusRate?.toString() || ''));
   
+  // Reset if month changes or if employee status requires 0
   useEffect(() => {
-     const rec = salaryRecords.find(r => r.id === `${emp.id}_${selectedMonth}`);
-     if (getSalaryStatus(emp, selectedMonth) === 'NOT_JOINED') {
+     if (isNotJoined) {
          setSales('0');
          setRate('0');
      } else {
+         const rec = salaryRecords.find(r => r.id === `${emp.id}_${payoutMonth}`);
          setSales(rec?.salesAmount?.toString() || '');
          setRate(rec?.bonusRate?.toString() || '');
      }
-  }, [selectedMonth, salaryRecords, emp.id]);
+  }, [payoutMonth, salaryRecords, emp.id, isNotJoined]);
 
   const salesNum = parseFloat(sales) || 0;
   const rateNum = parseFloat(rate) || 0;
@@ -161,8 +174,8 @@ const SalaryRow: React.FC<{
       id: recordId,
       employeeId: emp.id,
       employeeName: emp.name,
-      month: selectedMonth,
-      basicSalary: calculatedBaseSalary, // Save the calculated base, not the theoretical full
+      month: payoutMonth, // Saved under the payout month
+      basicSalary: calculatedBaseSalary, 
       salesAmount: salesNum,
       bonusRate: rateNum,
       bonusAmount: bonus,
@@ -196,7 +209,7 @@ const SalaryRow: React.FC<{
       </td>
       <td className="p-4">
         {isNotJoined ? (
-            <span className="text-xs text-nexus-muted">未入职</span>
+            <span className="text-xs text-nexus-muted">未入职 (计薪月)</span>
         ) : (
             <>
                 <Badge status={status} />
@@ -272,7 +285,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onSaveSalary,
   onLogout
 }) => {
-  const [activeTab, setActiveTab] = useState<'employees' | 'leaves' | 'salary'>('employees');
+  const [activeTab, setActiveTab] = useState<'employees' | 'leaves' | 'salary' | 'reports'>('employees');
   
   // -- Toast State --
   const [toasts, setToasts] = useState<{ id: string; message: string; type: ToastType }[]>([]);
@@ -294,6 +307,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // -- Delete Confirm State --
   const [deleteTarget, setDeleteTarget] = useState<{id: string, name: string} | null>(null);
   
+  // -- Reports State --
+  const [reportPeriod, setReportPeriod] = useState<6 | 12>(6);
+  const [reportEmployeeId, setReportEmployeeId] = useState<string>('all');
+
   const [newEmp, setNewEmp] = useState({
     name: '',
     jobTitle: '',
@@ -314,6 +331,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   });
+
+  const workMonth = getPreviousMonth(selectedMonth);
 
   // Calculate Status Logic
   const calculateProbationStatus = () => {
@@ -421,7 +440,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           return;
       }
       const newEmployee: Employee = {
-        id: generatedId, // Use the generated (and possibly manually edited) ID
+        id: generatedId, 
         ...newEmp,
         password: '1234',
         isFirstLogin: true
@@ -475,21 +494,53 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const getTotalPayout = () => {
     return employees.reduce((sum, emp) => {
-      if (getSalaryStatus(emp, selectedMonth) === 'NOT_JOINED') return sum;
+      if (getSalaryStatus(emp, workMonth) === 'NOT_JOINED') return sum;
 
       const record = salaryRecords.find(r => r.id === `${emp.id}_${selectedMonth}`);
       if (record) return sum + record.totalSalary;
       
-      // Calculate estimated
-      const status = getSalaryStatus(emp, selectedMonth);
+      // Calculate estimated based on WORK month
+      const status = getSalaryStatus(emp, workMonth);
       const baseRate = status === 'PROBATION' ? emp.probationSalary : emp.fullSalary;
-      const days = calculatePayableWorkDays(emp, selectedMonth);
-      const leaveDays = calculateLeaveDaysInMonth(leaveRequests, emp.id, selectedMonth);
+      const days = calculatePayableWorkDays(emp, workMonth);
+      const leaveDays = calculateLeaveDaysInMonth(leaveRequests, emp.id, workMonth);
       const actual = Math.max(0, days - leaveDays);
       const payout = (baseRate / 24) * actual;
       
       return sum + payout;
     }, 0);
+  };
+
+  // --- Reports Logic ---
+  const getChartData = () => {
+    const data = [];
+    const now = new Date();
+    
+    // Generate last N months
+    for (let i = reportPeriod - 1; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const monthStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        
+        let value = 0;
+        
+        if (reportEmployeeId === 'all') {
+            // Sum all records for this month
+            value = salaryRecords
+                .filter(r => r.month === monthStr)
+                .reduce((acc, r) => acc + r.totalSalary, 0);
+        } else {
+            // Specific employee
+            const rec = salaryRecords.find(r => r.month === monthStr && r.employeeId === reportEmployeeId);
+            value = rec ? rec.totalSalary : 0;
+        }
+        
+        data.push({
+            label: monthStr,
+            value: value,
+            subLabel: reportEmployeeId === 'all' ? '公司总支出' : '个人收入'
+        });
+    }
+    return data;
   };
 
   return (
@@ -519,7 +570,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 {[
                     { id: 'employees', icon: User, label: '员工档案' },
                     { id: 'leaves', icon: Calendar, label: '请假审批' },
-                    { id: 'salary', icon: Calculator, label: '薪资管理' }
+                    { id: 'salary', icon: Calculator, label: '薪资管理' },
+                    { id: 'reports', icon: BarChart3, label: '报表概览' }
                 ].map((tab) => (
                     <button
                         key={tab.id}
@@ -710,7 +762,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           </div>
                           <div>
                               <h2 className="text-xl font-bold text-white">工资结算表</h2>
-                              <p className="text-xs text-nexus-muted">Monthly Payroll</p>
+                              <div className="text-xs text-emerald-400 mt-1 flex items-center gap-1">
+                                  <Clock size={10} /> 计薪周期: {workMonth}
+                              </div>
                           </div>
                        </div>
                        
@@ -734,12 +788,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         <thead>
                           <tr className="text-nexus-muted text-xs uppercase tracking-wider border-b border-white/10 bg-white/5">
                             <th className="p-4 pl-6">员工</th>
-                            <th className="p-4">底薪</th>
+                            <th className="p-4">底薪 (计薪月)</th>
                             <th className="p-4 w-32">销售业绩</th>
                             <th className="p-4 w-24">提成%</th>
                             <th className="p-4">奖金</th>
                             <th className="p-4">实发工资</th>
-                            <th className="p-4 text-right pr-6">状态</th>
+                            <th className="p-4 text-right pr-6">操作</th>
                           </tr>
                         </thead>
                         <tbody className="text-sm">
@@ -747,7 +801,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                              <SalaryRow 
                                 key={emp.id} 
                                 emp={emp}
-                                selectedMonth={selectedMonth}
+                                payoutMonth={selectedMonth}
+                                workMonth={workMonth}
                                 salaryRecords={salaryRecords}
                                 leaveRequests={leaveRequests}
                                 onSaveSalary={onSaveSalary}
@@ -758,6 +813,73 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       </table>
                     </div>
                   </Card>
+              </div>
+            )}
+
+            {/* 4. REPORTS TAB */}
+            {activeTab === 'reports' && (
+              <div className="space-y-6">
+                 {/* Filter Controls */}
+                 <Card className="flex flex-col md:flex-row justify-between items-center gap-4">
+                     <div className="flex items-center gap-3">
+                         <div className="bg-purple-500/10 p-2 rounded-lg text-purple-400">
+                             <TrendingUp size={20} />
+                         </div>
+                         <h2 className="text-lg font-bold text-white">薪资支出趋势</h2>
+                     </div>
+                     <div className="flex items-center gap-3 bg-white/5 p-1 rounded-xl">
+                        <button 
+                            onClick={() => setReportPeriod(6)}
+                            className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${reportPeriod === 6 ? 'bg-nexus-accent text-white' : 'text-nexus-muted hover:text-white'}`}
+                        >
+                            最近半年
+                        </button>
+                        <button 
+                            onClick={() => setReportPeriod(12)}
+                            className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${reportPeriod === 12 ? 'bg-nexus-accent text-white' : 'text-nexus-muted hover:text-white'}`}
+                        >
+                            最近一年
+                        </button>
+                     </div>
+                 </Card>
+
+                 {/* Company Wide Chart */}
+                 <Card>
+                    <div className="flex justify-between items-end mb-6">
+                        <div>
+                            <div className="text-xs text-nexus-muted uppercase tracking-wider mb-1">公司总支出</div>
+                            <div className="text-3xl font-bold text-white font-mono">
+                                ¥{getChartData().reduce((acc, curr) => acc + curr.value, 0).toLocaleString()}
+                            </div>
+                        </div>
+                    </div>
+                    <BarChart data={getChartData()} height={250} />
+                 </Card>
+
+                 {/* Employee Breakdown */}
+                 <Card>
+                    <div className="flex justify-between items-center mb-6">
+                        <h3 className="text-md font-bold text-white flex items-center gap-2">
+                            <User size={16} /> 员工个人趋势
+                        </h3>
+                        <div className="w-48">
+                            <Select 
+                                options={[
+                                    { value: 'all', label: '全部 (公司总览)' },
+                                    ...employees.map(e => ({ value: e.id, label: e.name }))
+                                ]}
+                                value={reportEmployeeId}
+                                onChange={(e) => setReportEmployeeId(e.target.value)}
+                            />
+                        </div>
+                    </div>
+                    <BarChart 
+                        data={getChartData()} 
+                        height={200} 
+                        colorStart="from-purple-500" 
+                        colorEnd="to-indigo-600" 
+                    />
+                 </Card>
               </div>
             )}
         </div>
@@ -910,7 +1032,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
       </Modal>
 
-      {/* --- DELETE CONFIRMATION MODAL --- */}
+      {/* --- DELETE CONFIRMATION MODAL (DARK CRIMSON) --- */}
       <Modal
         isOpen={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
@@ -921,7 +1043,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
              <Button 
                 variant="danger" 
                 onClick={handleConfirmDelete} 
-                className="flex-1 bg-gradient-to-r from-red-900 to-red-800 border border-red-700 hover:from-red-800 hover:to-red-700 text-white shadow-lg shadow-red-900/40"
+                className="flex-1 bg-gradient-to-r from-red-900 to-red-950 border border-red-900 hover:from-red-800 hover:to-red-900 text-red-100 shadow-lg shadow-red-950/50"
              >
                 确认彻底删除
              </Button>
@@ -929,7 +1051,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         }
       >
          <div className="text-center space-y-4">
-             <div className="w-16 h-16 bg-red-900/20 rounded-full flex items-center justify-center mx-auto border border-red-900/40 shadow-[0_0_20px_rgba(153,27,27,0.4)]">
+             <div className="w-16 h-16 bg-gradient-to-br from-red-900/30 to-black rounded-full flex items-center justify-center mx-auto border border-red-900/50 shadow-[0_0_30px_rgba(127,29,29,0.4)]">
                 <AlertTriangle size={32} className="text-red-500" />
              </div>
              <div>
@@ -938,7 +1060,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                    您确定要彻底删除 <strong className="text-white text-lg">{deleteTarget?.name}</strong> (工号: {deleteTarget?.id}) 吗？
                 </p>
              </div>
-             <div className="bg-red-950/40 border border-red-900/30 p-4 rounded-xl text-left text-sm text-red-200/60">
+             <div className="bg-red-950/20 border border-red-900/20 p-4 rounded-xl text-left text-sm text-red-200/50">
                 <ul className="list-disc pl-4 space-y-1">
                    <li>此操作<strong className="text-red-400">无法撤销</strong>。</li>
                    <li>该员工的入职档案、请假记录、薪资历史将全部被永久移除。</li>
