@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Employee, LeaveRequest, LeaveStatus, SalaryRecord } from '../types';
-import { Card, Button, Input, Badge, CustomDatePicker, CustomMonthPicker, BarChart } from './UI';
+import { Card, Button, Input, Badge, CustomDatePicker, CustomMonthPicker, LineChart } from './UI';
 import { User, Calendar, Clock, DollarSign, LogOut, Briefcase, Download, TrendingUp } from 'lucide-react';
 import html2canvas from 'html2canvas';
 
@@ -12,12 +12,51 @@ interface EmployeeDashboardProps {
   onLogout: () => void;
 }
 
-// Helper to get previous month (Payout Dec -> Work Nov)
+// --- Helper Functions (Duplicated from AdminDashboard to ensure consistency in calculation) ---
 const getPreviousMonth = (monthStr: string): string => {
     if (!monthStr) return '';
     const [year, month] = monthStr.split('-').map(Number);
     const date = new Date(year, month - 2, 1); 
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+};
+
+const isWorkDay = (date: Date): boolean => {
+    const day = date.getDay();
+    if (day === 0) return false; 
+    if (day >= 1 && day <= 5) return true; 
+
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const dayOfMonth = date.getDate();
+
+    let saturdayIndex = -1;
+    let count = 0;
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    
+    for (let d = 1; d <= daysInMonth; d++) {
+        const tempDate = new Date(year, month, d);
+        if (tempDate.getDay() === 6) {
+            if (d === dayOfMonth) {
+                saturdayIndex = count;
+                break;
+            }
+            count++;
+        }
+    }
+    return saturdayIndex !== -1 && saturdayIndex % 2 !== 0;
+};
+
+const getMonthlyStandardDays = (monthStr: string): number => {
+    if (!monthStr) return 0;
+    const [year, month] = monthStr.split('-').map(Number);
+    const daysInMonth = new Date(year, month, 0).getDate();
+    let workDays = 0;
+    for (let d = 1; d <= daysInMonth; d++) {
+        if (isWorkDay(new Date(year, month - 1, d))) {
+            workDays++;
+        }
+    }
+    return workDays;
 };
 
 export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
@@ -106,26 +145,15 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
         const displayLabel = getPreviousMonth(payoutMonthStr);
         
         let value = 0;
-        let details = undefined;
-
+        
         const rec = salaryRecords.find(r => r.month === payoutMonthStr && r.employeeId === employee.id);
         if (rec) {
             value = rec.totalSalary;
-            details = {
-                base: rec.standardSalary || rec.basicSalary,
-                deduction: rec.leaveDeduction || 0,
-                bonus: rec.bonusAmount,
-                attendanceBonus: rec.attendanceBonus,
-                real: rec.totalSalary,
-                days: rec.manualWorkDays // Simply pass stored days if available
-            };
         }
         
         data.push({
             label: displayLabel, 
-            value: Math.round(value),
-            subLabel: '个人收入',
-            details: details
+            value: Math.round(value)
         });
     }
     return data;
@@ -138,7 +166,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
 
     try {
         const canvas = await html2canvas(el, {
-            backgroundColor: '#0B0C15', // Consistent Dark Background
+            backgroundColor: '#0B0C15', 
             scale: 2, 
         });
         
@@ -344,7 +372,8 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
 
              {activeTab === 'salary' && (
                <div className="space-y-8">
-                 <Card className="min-h-[400px]">
+                 {/* Removed min-h to allow dynamic extension based on content */}
+                 <Card>
                     {/* Header with relative z-20 to fix dropdown overlap */}
                     <div className="flex justify-between items-center mb-6 relative z-20">
                         <h2 className="text-xl font-bold flex items-center gap-2">
@@ -358,94 +387,102 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
                         {filteredSalaries.length === 0 ? (
                             <p className="text-nexus-muted text-center py-8">暂无工资记录。</p>
                         ) : (
-                            filteredSalaries.map(sal => (
-                            <div key={sal.id} className="relative group">
-                                {/* Hidden Element for Printing/Downloading */}
-                                <div id={`payslip-${sal.id}`} className="fixed top-[-9999px] left-[-9999px] w-[800px] p-10 bg-[#0B0C15] text-white font-sans border border-white/20">
-                                    <div className="text-center border-b border-white/20 pb-6 mb-6">
-                                        <h1 className="text-3xl font-bold tracking-widest text-white mb-2">棠灿贸易</h1>
-                                        <div className="text-nexus-accent text-sm uppercase tracking-[0.3em]">工资单凭证 PAYSLIP</div>
-                                    </div>
-                                    <div className="flex justify-between mb-8 text-sm">
-                                        <div>
-                                            <div className="text-nexus-muted mb-1">姓名 / Employee</div>
-                                            <div className="text-xl font-bold">{sal.employeeName}</div>
-                                        </div>
-                                        <div className="text-right">
-                                            <div className="text-nexus-muted mb-1">发薪月份 (计薪周期)</div>
-                                            <div className="text-xl font-mono">{sal.month} ({getPreviousMonth(sal.month)})</div>
-                                        </div>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-4 mb-8">
-                                        <div className="bg-white/5 p-4 rounded-lg border border-white/10">
-                                            <div className="text-nexus-muted text-xs uppercase mb-2">收入项目 (Earnings)</div>
-                                            <div className="flex justify-between mb-2"><span>基本工资</span><span className="font-mono">¥{Math.round(sal.standardSalary || sal.basicSalary).toLocaleString()}</span></div>
-                                            <div className="flex justify-between mb-2"><span>销售业绩提成</span><span className="font-mono">¥{Math.round(sal.bonusAmount).toLocaleString()}</span></div>
-                                            <div className="flex justify-between"><span>全勤奖金</span><span className="font-mono">¥{Math.round(sal.attendanceBonus || 0).toLocaleString()}</span></div>
-                                        </div>
-                                        <div className="bg-white/5 p-4 rounded-lg border border-white/10">
-                                            <div className="text-nexus-muted text-xs uppercase mb-2">扣除项目 (Deductions)</div>
-                                            <div className="flex justify-between text-red-400"><span>请假扣款</span><span className="font-mono">-¥{Math.round(sal.leaveDeduction || 0).toLocaleString()}</span></div>
-                                        </div>
-                                    </div>
-                                    <div className="border-t-2 border-white/20 pt-6 flex justify-between items-center">
-                                        <div className="text-xs text-nexus-muted">
-                                            此单据由系统自动生成。<br/>Generated by NexusHR System.
-                                        </div>
-                                        <div className="text-right">
-                                            <div className="text-sm text-nexus-muted uppercase mb-1">实发工资 (Net Pay)</div>
-                                            <div className="text-4xl font-bold text-emerald-400 font-mono">¥{Math.round(sal.totalSalary).toLocaleString()}</div>
-                                        </div>
-                                    </div>
-                                </div>
+                            filteredSalaries.map(sal => {
+                                // Smart Deduction Calc
+                                const stdSalary = sal.standardSalary || sal.basicSalary;
+                                const basic = sal.basicSalary;
+                                // If stored deduction is 0 but paid basic < standard, then deduction is the difference
+                                const deduction = sal.leaveDeduction || (stdSalary > basic ? stdSalary - basic : 0);
 
-                                {/* Visible Card */}
-                                <div className="bg-white/5 border border-white/5 rounded-xl p-5 hover:border-nexus-accent/30 transition-all">
-                                    <div className="flex justify-between items-start mb-4">
-                                        <div>
-                                            <span className="text-lg font-bold text-white font-mono block">{sal.month}</span>
-                                            <span className="text-xs text-nexus-muted flex items-center gap-1">
-                                                计薪周期: <span className="text-white/80">{getPreviousMonth(sal.month)}</span>
-                                            </span>
+                                return (
+                                <div key={sal.id} className="relative group">
+                                    {/* Hidden Element for Printing/Downloading */}
+                                    <div id={`payslip-${sal.id}`} className="fixed top-[-9999px] left-[-9999px] w-[800px] p-10 bg-[#0B0C15] text-white font-sans border border-white/20">
+                                        <div className="text-center border-b border-white/20 pb-6 mb-6">
+                                            <h1 className="text-3xl font-bold tracking-widest text-white mb-2">棠灿贸易</h1>
+                                            <div className="text-nexus-accent text-sm uppercase tracking-[0.3em]">工资单凭证 PAYSLIP</div>
                                         </div>
-                                        <div className="text-right">
-                                            <div className="text-xl font-bold text-emerald-400 font-mono">¥{Math.round(sal.totalSalary).toLocaleString()}</div>
-                                            <div className="text-xs text-nexus-muted uppercase">实发工资</div>
+                                        <div className="flex justify-between mb-8 text-sm">
+                                            <div>
+                                                <div className="text-nexus-muted mb-1">姓名 / Employee</div>
+                                                <div className="text-xl font-bold">{sal.employeeName}</div>
+                                            </div>
+                                            <div className="text-right">
+                                                <div className="text-nexus-muted mb-1">发薪月份 (计薪周期)</div>
+                                                <div className="text-xl font-mono">{sal.month} ({getPreviousMonth(sal.month)})</div>
+                                            </div>
                                         </div>
-                                    </div>
-                                    
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-y-4 gap-x-2 text-sm border-t border-white/5 pt-4">
-                                        <div>
-                                            <div className="text-xs text-nexus-muted uppercase mb-1">基本工资</div>
-                                            <div className="text-white font-mono">¥{Math.round(sal.standardSalary || sal.basicSalary).toLocaleString()}</div>
+                                        <div className="grid grid-cols-2 gap-4 mb-8">
+                                            <div className="bg-white/5 p-4 rounded-lg border border-white/10">
+                                                <div className="text-nexus-muted text-xs uppercase mb-2">收入项目 (Earnings)</div>
+                                                <div className="flex justify-between mb-2"><span>基本工资</span><span className="font-mono">¥{Math.round(stdSalary).toLocaleString()}</span></div>
+                                                <div className="flex justify-between mb-2"><span>销售业绩提成</span><span className="font-mono">¥{Math.round(sal.bonusAmount).toLocaleString()}</span></div>
+                                                <div className="flex justify-between"><span>全勤奖金</span><span className="font-mono">¥{Math.round(sal.attendanceBonus || 0).toLocaleString()}</span></div>
+                                            </div>
+                                            <div className="bg-white/5 p-4 rounded-lg border border-white/10">
+                                                <div className="text-nexus-muted text-xs uppercase mb-2">扣除项目 (Deductions)</div>
+                                                <div className="flex justify-between text-red-400"><span>请假扣款</span><span className="font-mono">-¥{Math.round(deduction).toLocaleString()}</span></div>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <div className="text-xs text-nexus-muted uppercase mb-1">业绩提成</div>
-                                            <div className="text-white font-mono">¥{Math.round(sal.bonusAmount).toLocaleString()}</div>
-                                        </div>
-                                        <div>
-                                            <div className="text-xs text-nexus-muted uppercase mb-1">全勤奖</div>
-                                            <div className="text-yellow-400 font-mono">¥{Math.round(sal.attendanceBonus || 0).toLocaleString()}</div>
-                                        </div>
-                                        <div>
-                                            <div className="text-xs text-nexus-muted uppercase mb-1">请假扣除</div>
-                                            <div className="text-red-400 font-mono">-¥{Math.round(sal.leaveDeduction || 0).toLocaleString()}</div>
+                                        <div className="border-t-2 border-white/20 pt-6 flex justify-between items-center">
+                                            <div className="text-xs text-nexus-muted">
+                                                此单据由系统自动生成。<br/>Generated by NexusHR System.
+                                            </div>
+                                            <div className="text-right">
+                                                <div className="text-sm text-nexus-muted uppercase mb-1">实发工资 (Net Pay)</div>
+                                                <div className="text-4xl font-bold text-emerald-400 font-mono">¥{Math.round(sal.totalSalary).toLocaleString()}</div>
+                                            </div>
                                         </div>
                                     </div>
 
-                                    <div className="mt-4 flex justify-end">
-                                        <Button variant="secondary" size="sm" icon={<Download size={14}/>} onClick={() => handleDownload(sal)} className="text-xs">
-                                            下载工资单
-                                        </Button>
+                                    {/* Visible Card */}
+                                    <div className="bg-white/5 border border-white/5 rounded-xl p-5 hover:border-nexus-accent/30 transition-all">
+                                        <div className="flex justify-between items-start mb-4">
+                                            <div>
+                                                <span className="text-lg font-bold text-white font-mono block">{sal.month}</span>
+                                                <span className="text-xs text-nexus-muted flex items-center gap-1">
+                                                    计薪周期: <span className="text-white/80">{getPreviousMonth(sal.month)}</span>
+                                                </span>
+                                            </div>
+                                            <div className="text-right">
+                                                <div className="text-xl font-bold text-emerald-400 font-mono">¥{Math.round(sal.totalSalary).toLocaleString()}</div>
+                                                <div className="text-xs text-nexus-muted uppercase">实发工资</div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-y-4 gap-x-2 text-sm border-t border-white/5 pt-4">
+                                            <div>
+                                                <div className="text-xs text-nexus-muted uppercase mb-1">基本工资</div>
+                                                <div className="text-white font-mono">¥{Math.round(stdSalary).toLocaleString()}</div>
+                                            </div>
+                                            <div>
+                                                <div className="text-xs text-nexus-muted uppercase mb-1">业绩提成</div>
+                                                <div className="text-white font-mono">¥{Math.round(sal.bonusAmount).toLocaleString()}</div>
+                                            </div>
+                                            <div>
+                                                <div className="text-xs text-nexus-muted uppercase mb-1">全勤奖</div>
+                                                <div className="text-yellow-400 font-mono">¥{Math.round(sal.attendanceBonus || 0).toLocaleString()}</div>
+                                            </div>
+                                            <div>
+                                                <div className="text-xs text-nexus-muted uppercase mb-1">请假扣除</div>
+                                                <div className="text-red-400 font-mono">-¥{Math.round(deduction).toLocaleString()}</div>
+                                            </div>
+                                        </div>
+
+                                        <div className="mt-4 flex justify-end">
+                                            <Button variant="secondary" size="sm" icon={<Download size={14}/>} onClick={() => handleDownload(sal)} className="text-xs">
+                                                下载工资单
+                                            </Button>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                            ))
+                                );
+                            })
                         )}
                     </div>
                  </Card>
 
-                 {/* Trend Chart (Switched to BarChart) */}
+                 {/* Trend Chart (Switched to LineChart) */}
                  <Card>
                     <div className="flex justify-between items-center mb-6">
                         <h3 className="text-lg font-bold flex items-center gap-2">
@@ -456,8 +493,8 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
                             <button onClick={() => setChartPeriod(12)} className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${chartPeriod === 12 ? 'bg-nexus-accent text-white' : 'text-nexus-muted hover:text-white'}`}>最近一年</button>
                         </div>
                     </div>
-                    {/* Using BarChart for consistency */}
-                    <BarChart data={getChartData(chartPeriod)} height={250} />
+                    {/* UPDATED: Using LineChart as requested */}
+                    <LineChart data={getChartData(chartPeriod)} height={250} />
                  </Card>
                </div>
              )}
