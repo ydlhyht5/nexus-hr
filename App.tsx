@@ -67,6 +67,36 @@ const App: React.FC = () => {
     }
   };
 
+  // Helper to seed data for Li Taoran as requested by user
+  const seedLiTaoranData = async () => {
+      // Check if Li Taoran exists (using ID ltr1104 from screenshot or name)
+      const emp = (await db.getAllEmployees()).find(e => e.id === 'ltr1104' || e.name === '李陶然');
+      if (emp) {
+          const leaves = await db.getAllLeaves();
+          // Check if he has leave in Nov 2025
+          const hasNovLeave = leaves.some(l => l.employeeId === emp.id && l.startDate.startsWith('2025-11'));
+          
+          if (!hasNovLeave) {
+              console.log("Creating forced leave record for Li Taoran...");
+              const newLeave: LeaveRequest = {
+                  id: `seed-${Date.now()}`,
+                  employeeId: emp.id,
+                  employeeName: emp.name,
+                  startDate: '2025-11-12',
+                  endDate: '2025-11-15', // 4 days
+                  days: 4,
+                  reason: '事假 (系统补录)',
+                  status: LeaveStatus.APPROVED,
+                  createdAt: Date.now(),
+                  synced: false
+              };
+              await db.saveLeave(newLeave);
+              // Force reload
+              loadData();
+          }
+      }
+  };
+
   // Initialize DB and Network Listeners
   useEffect(() => {
     const initApp = async () => {
@@ -78,6 +108,10 @@ const App: React.FC = () => {
       });
 
       await loadData();
+      
+      // Run Seeder
+      await seedLiTaoranData();
+
       setIsDbReady(true);
     };
 
