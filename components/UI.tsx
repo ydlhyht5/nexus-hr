@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { X, CheckCircle, AlertCircle, Info } from 'lucide-react';
 
 // --- Card ---
 export const Card: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = '' }) => (
@@ -9,9 +10,10 @@ export const Card: React.FC<{ children: React.ReactNode; className?: string }> =
 
 // --- Button ---
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'danger' | 'ghost';
+  variant?: 'primary' | 'secondary' | 'danger' | 'ghost' | 'success';
   size?: 'sm' | 'md' | 'lg';
   isLoading?: boolean;
+  icon?: React.ReactNode;
 }
 
 export const Button: React.FC<ButtonProps> = ({ 
@@ -20,19 +22,21 @@ export const Button: React.FC<ButtonProps> = ({
   size = 'md',
   isLoading, 
   className = '', 
+  icon,
   ...props 
 }) => {
-  const baseStyle = "rounded-xl font-medium transition-all duration-300 transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2";
+  const baseStyle = "rounded-xl font-medium transition-all duration-300 transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 relative overflow-hidden";
   
   const sizes = {
-    sm: "px-3 py-1.5 text-sm",
-    md: "px-6 py-2.5",
-    lg: "px-8 py-3 text-lg"
+    sm: "px-3 py-1.5 text-xs",
+    md: "px-5 py-2.5 text-sm",
+    lg: "px-8 py-3 text-base"
   };
 
   const variants = {
-    primary: "bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white shadow-neon hover:shadow-neon-hover",
-    secondary: "bg-white/5 border border-white/10 text-nexus-text hover:bg-white/10 hover:border-white/20",
+    primary: "bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white shadow-neon hover:shadow-neon-hover border border-white/10",
+    success: "bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-neon hover:shadow-neon-hover border border-white/10",
+    secondary: "bg-white/5 border border-white/10 text-nexus-text hover:bg-white/10 hover:border-white/20 backdrop-blur-md",
     danger: "bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 hover:border-red-500/40",
     ghost: "text-nexus-muted hover:text-nexus-text hover:bg-white/5"
   };
@@ -44,11 +48,19 @@ export const Button: React.FC<ButtonProps> = ({
       {...props}
     >
       {isLoading ? (
-        <svg className="animate-spin h-5 w-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
-      ) : children}
+        <div className="flex items-center gap-2">
+          <svg className="animate-spin h-4 w-4 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <span>Processing...</span>
+        </div>
+      ) : (
+        <>
+          {icon && <span className="opacity-90">{icon}</span>}
+          {children}
+        </>
+      )}
     </button>
   );
 };
@@ -56,15 +68,17 @@ export const Button: React.FC<ButtonProps> = ({
 // --- Input ---
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
+  error?: string;
 }
 
-export const Input: React.FC<InputProps> = ({ label, className = '', ...props }) => (
+export const Input: React.FC<InputProps> = ({ label, error, className = '', ...props }) => (
   <div className="flex flex-col gap-1.5 w-full">
     {label && <label className="text-xs font-semibold text-nexus-muted uppercase tracking-wider pl-1">{label}</label>}
     <input
-      className={`bg-nexus-dark/50 border border-white/10 rounded-xl px-4 py-3 text-base text-nexus-text placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-nexus-accent/50 focus:border-nexus-accent transition-all ${className}`}
+      className={`bg-nexus-dark/50 border ${error ? 'border-red-500/50' : 'border-white/10'} rounded-xl px-4 py-3 text-sm text-nexus-text placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-nexus-accent/50 focus:border-nexus-accent transition-all ${className}`}
       {...props}
     />
+    {error && <span className="text-xs text-red-400 pl-1">{error}</span>}
   </div>
 );
 
@@ -79,7 +93,7 @@ export const Select: React.FC<SelectProps> = ({ label, options, className = '', 
     {label && <label className="text-xs font-semibold text-nexus-muted uppercase tracking-wider pl-1">{label}</label>}
     <div className="relative">
       <select
-        className={`bg-nexus-dark/50 border border-white/10 rounded-xl px-4 py-3 text-base text-nexus-text appearance-none w-full focus:outline-none focus:ring-2 focus:ring-nexus-accent/50 transition-all ${className}`}
+        className={`bg-nexus-dark/50 border border-white/10 rounded-xl px-4 py-3 text-sm text-nexus-text appearance-none w-full focus:outline-none focus:ring-2 focus:ring-nexus-accent/50 transition-all ${className}`}
         {...props}
       >
         {options.map((opt) => (
@@ -119,5 +133,91 @@ export const Badge: React.FC<{ status: string }> = ({ status }) => {
     <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${styles[status] || defaultStyle}`}>
       {labels[status] || status}
     </span>
+  );
+};
+
+// --- Modal ---
+interface ModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  title: string;
+  children: React.ReactNode;
+  footer?: React.ReactNode;
+}
+
+export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, footer }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div 
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" 
+        onClick={onClose}
+      />
+      <div className="relative bg-nexus-card border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl transform transition-all animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
+        <div className="flex items-center justify-between p-6 border-b border-white/5">
+          <h3 className="text-xl font-bold text-white tracking-tight">{title}</h3>
+          <button onClick={onClose} className="text-nexus-muted hover:text-white transition-colors">
+            <X size={20} />
+          </button>
+        </div>
+        <div className="p-6 overflow-y-auto custom-scrollbar">
+          {children}
+        </div>
+        {footer && (
+          <div className="p-6 border-t border-white/5 bg-white/5 rounded-b-2xl">
+            {footer}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// --- Toast ---
+export type ToastType = 'success' | 'error' | 'info';
+
+interface ToastProps {
+  message: string;
+  type: ToastType;
+  onClose: () => void;
+}
+
+export const Toast: React.FC<ToastProps> = ({ message, type, onClose }) => {
+  useEffect(() => {
+    const timer = setTimeout(onClose, 3000);
+    return () => clearTimeout(timer);
+  }, [onClose]);
+
+  const icons = {
+    success: <CheckCircle size={18} className="text-green-400" />,
+    error: <AlertCircle size={18} className="text-red-400" />,
+    info: <Info size={18} className="text-blue-400" />
+  };
+
+  const bgStyles = {
+    success: "bg-nexus-card border-green-500/20 shadow-[0_0_15px_rgba(16,185,129,0.1)]",
+    error: "bg-nexus-card border-red-500/20 shadow-[0_0_15px_rgba(239,68,68,0.1)]",
+    info: "bg-nexus-card border-blue-500/20 shadow-[0_0_15px_rgba(59,130,246,0.1)]"
+  };
+
+  return (
+    <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border backdrop-blur-md animate-in slide-in-from-top-2 fade-in ${bgStyles[type]}`}>
+      {icons[type]}
+      <span className="text-sm font-medium text-white">{message}</span>
+      <button onClick={onClose} className="ml-2 text-white/50 hover:text-white">
+        <X size={14} />
+      </button>
+    </div>
+  );
+};
+
+export const ToastContainer: React.FC<{ toasts: { id: string; message: string; type: ToastType }[]; removeToast: (id: string) => void }> = ({ toasts, removeToast }) => {
+  return (
+    <div className="fixed top-6 right-6 z-[100] flex flex-col gap-3">
+      {toasts.map(t => (
+        <Toast key={t.id} message={t.message} type={t.type} onClose={() => removeToast(t.id)} />
+      ))}
+    </div>
   );
 };
