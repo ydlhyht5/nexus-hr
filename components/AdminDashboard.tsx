@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Employee, Gender, LeaveRequest, LeaveStatus, SalaryRecord } from '../types';
 import { Card, NeonCard, Button, Input, Select, Badge, Modal, ToastContainer, ToastType } from './UI';
 import { generatePinyinInitials } from '../services/geminiService';
-import { UserPlus, Calendar, Check, X, Pencil, Calculator, Save, Wand2, User, Trash2, KeyRound, Briefcase, Clock, DollarSign } from 'lucide-react';
+import { UserPlus, Calendar, Check, X, Pencil, Calculator, Save, User, KeyRound, Briefcase, DollarSign, Clock } from 'lucide-react';
 
 interface AdminDashboardProps {
   employees: Employee[];
@@ -151,8 +151,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onResetPassword,
   onUpdateLeaveStatus,
   onSaveSalary,
-  onImportData,
-  onExportData,
   onLogout
 }) => {
   const [activeTab, setActiveTab] = useState<'employees' | 'leaves' | 'salary'>('employees');
