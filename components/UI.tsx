@@ -117,7 +117,7 @@ export const BarChart: React.FC<BarChartProps> = ({
                {item.details ? (
                  <div className="space-y-1 text-xs">
                     <div className="flex justify-between gap-4">
-                      <span className="text-gray-400">应发底薪</span>
+                      <span className="text-gray-400">基本工资</span>
                       <span className="text-white font-mono">¥{item.details.base.toLocaleString()}</span>
                     </div>
                     {item.details.deduction > 0 && (
