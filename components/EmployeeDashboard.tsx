@@ -135,7 +135,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
     .filter(r => salaryFilterMonth ? r.month === salaryFilterMonth : true)
     .sort((a, b) => b.month.localeCompare(a.month)); // Newest first
 
-  // Data for Trend Chart
+  // Data for Trend Chart (Bar Chart Logic)
   const getChartData = (period: 6 | 12) => {
     const data = [];
     const now = new Date();
@@ -152,19 +152,22 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
             value = rec.totalSalary;
             
             // Calculate details for tooltip
-            const stdSalary = rec.standardSalary || rec.basicSalary;
-            const basic = rec.basicSalary;
-            const deduction = rec.leaveDeduction || (stdSalary > basic ? stdSalary - basic : 0);
+            // FIX: Use actual basic salary (paid) as base, so math adds up
+            const paidBasic = rec.basicSalary;
+            const deduction = rec.leaveDeduction || 0;
             
+            // Standard Days for the work month
             const stdDays = getMonthlyStandardDays(displayLabel);
             
+            // Estimate days if not manual
             let days = rec.manualWorkDays;
-            if (!days && stdSalary > 0) {
-                days = Math.round((basic / stdSalary) * stdDays);
+            if (!days && rec.standardSalary && rec.standardSalary > 0) {
+                // If Paid Basic < Standard, days will be lower
+                days = Math.round((paidBasic / rec.standardSalary) * stdDays);
             }
 
             details = {
-                base: stdSalary,
+                base: paidBasic, 
                 deduction: deduction,
                 bonus: rec.bonusAmount,
                 attendanceBonus: rec.attendanceBonus,
@@ -184,6 +187,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
     return data;
   };
 
+  // Handle Download Payslip
   const handleDownload = async (record: SalaryRecord) => {
     const el = document.getElementById(`payslip-${record.id}`);
     if (!el) return;
@@ -397,7 +401,6 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
 
              {activeTab === 'salary' && (
                <div className="space-y-8">
-                 {/* Removed min-h to allow dynamic extension based on content */}
                  <Card>
                     {/* Header with relative z-20 to fix dropdown overlap */}
                     <div className="flex justify-between items-center mb-6 relative z-20">
@@ -413,11 +416,9 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
                             <p className="text-nexus-muted text-center py-8">暂无工资记录。</p>
                         ) : (
                             filteredSalaries.map(sal => {
-                                // Smart Deduction Calc
+                                // Smart Deduction Calc: Just use what is stored
                                 const stdSalary = sal.standardSalary || sal.basicSalary;
-                                const basic = sal.basicSalary;
-                                // If stored deduction is 0 but paid basic < standard, then deduction is the difference
-                                const deduction = sal.leaveDeduction || (stdSalary > basic ? stdSalary - basic : 0);
+                                const deduction = sal.leaveDeduction || 0;
 
                                 return (
                                 <div key={sal.id} className="relative group">
