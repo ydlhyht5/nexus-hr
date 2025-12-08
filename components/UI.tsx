@@ -28,7 +28,42 @@ export const NeonCard: React.FC<{ children: React.ReactNode; className?: string;
   </div>
 );
 
-// --- Bar Chart (Web3 Style) ---
+// --- Avatar (Web3 Style) ---
+interface AvatarProps {
+  name: string;
+  size?: 'sm' | 'md' | 'lg';
+  selected?: boolean;
+  onClick?: () => void;
+  className?: string;
+}
+
+export const Avatar: React.FC<AvatarProps> = ({ name, size = 'md', selected, onClick, className = '' }) => {
+  const sizeClasses = {
+    sm: "h-8 w-8 text-xs",
+    md: "h-12 w-12 text-sm",
+    lg: "h-16 w-16 text-lg"
+  };
+
+  return (
+    <div 
+      onClick={onClick}
+      className={`relative rounded-xl flex items-center justify-center font-bold text-white transition-all duration-300 ${sizeClasses[size]} ${onClick ? 'cursor-pointer' : ''} ${selected ? 'scale-110 shadow-[0_0_15px_rgba(99,102,241,0.6)] z-10' : 'opacity-70 hover:opacity-100 hover:scale-105'} ${className}`}
+      style={{
+        background: selected 
+          ? 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)' 
+          : 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
+        border: selected ? '1px solid rgba(255,255,255,0.3)' : '1px solid rgba(255,255,255,0.05)'
+      }}
+    >
+      {name.charAt(0)}
+      {selected && (
+        <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-400 rounded-full border-2 border-[#0B0C15]"></div>
+      )}
+    </div>
+  );
+};
+
+// --- Bar Chart (Web3 Style V2) ---
 interface BarChartProps {
   data: { label: string; value: number; subLabel?: string }[];
   height?: number;
@@ -44,9 +79,14 @@ export const BarChart: React.FC<BarChartProps> = ({
 }) => {
   const maxValue = Math.max(...data.map(d => d.value), 1);
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   return (
-    <div className="w-full flex items-end justify-between gap-2" style={{ height: `${height}px` }}>
+    <div className="w-full flex items-end justify-between gap-2 px-2" style={{ height: `${height}px` }}>
       {data.map((item, idx) => {
         const percent = (item.value / maxValue) * 100;
         const isHovered = hoverIdx === idx;
@@ -54,30 +94,35 @@ export const BarChart: React.FC<BarChartProps> = ({
         return (
           <div 
             key={idx} 
-            className="relative flex-1 flex flex-col justify-end group h-full"
+            className="relative flex-1 flex flex-col justify-end items-center group h-full"
             onMouseEnter={() => setHoverIdx(idx)}
             onMouseLeave={() => setHoverIdx(null)}
           >
             {/* Tooltip */}
             <div 
-              className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-[#0F111A] border border-white/10 px-3 py-2 rounded-lg shadow-xl z-20 pointer-events-none transition-all duration-200 whitespace-nowrap ${isHovered ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}`}
+              className={`absolute bottom-full mb-3 bg-[#0F111A] border border-white/10 px-3 py-2 rounded-lg shadow-xl z-20 pointer-events-none transition-all duration-200 whitespace-nowrap ${isHovered ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-2 scale-95'}`}
             >
-               <div className="text-xs text-nexus-muted">{item.label}</div>
-               <div className="text-sm font-bold text-white font-mono">¥{item.value.toLocaleString()}</div>
-               {item.subLabel && <div className="text-[10px] text-white/50">{item.subLabel}</div>}
+               <div className="text-xs text-nexus-muted mb-0.5">{item.label}</div>
+               <div className="text-lg font-bold text-white font-mono leading-none">¥{item.value.toLocaleString()}</div>
+               {item.subLabel && <div className="text-[10px] text-white/50 mt-1">{item.subLabel}</div>}
+               {/* Tooltip Arrow */}
+               <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-[#0F111A]"></div>
             </div>
 
-            {/* Bar */}
-            <div 
-              className={`w-full rounded-t-lg transition-all duration-500 ease-out bg-gradient-to-t ${colorStart} ${colorEnd} relative overflow-hidden ${isHovered ? 'brightness-125 shadow-[0_0_15px_rgba(16,185,129,0.3)]' : 'opacity-80'}`}
-              style={{ height: `${Math.max(percent, 2)}%` }}
-            >
-               {/* Shine effect */}
-               <div className="absolute inset-0 bg-gradient-to-b from-white/20 to-transparent opacity-50"></div>
+            {/* Bar Container for Alignment */}
+            <div className="w-full h-full flex items-end justify-center">
+                {/* Actual Bar */}
+                <div 
+                  className={`w-full max-w-[40px] rounded-t-sm transition-all duration-700 ease-out bg-gradient-to-t ${colorStart} ${colorEnd} relative overflow-hidden ${isHovered ? 'brightness-125 shadow-[0_0_20px_rgba(16,185,129,0.4)]' : 'opacity-80'}`}
+                  style={{ height: mounted ? `${Math.max(percent, 2)}%` : '0%' }}
+                >
+                   {/* Shine effect */}
+                   <div className="absolute inset-0 bg-gradient-to-b from-white/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                </div>
             </div>
             
             {/* Label */}
-            <div className="text-[10px] text-center text-nexus-muted mt-2 font-mono truncate px-1">
+            <div className={`text-[10px] text-center mt-3 font-mono transition-colors duration-200 ${isHovered ? 'text-white font-bold' : 'text-nexus-muted'}`}>
               {item.label.split('-')[1] || item.label}
             </div>
           </div>
