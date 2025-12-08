@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Employee, Gender, LeaveRequest, LeaveStatus, SalaryRecord } from '../types';
-import { Card, NeonCard, Button, Input, CustomSelect, CustomDatePicker, Badge, Modal, ToastContainer, ToastType, BarChart, Avatar } from './UI';
+import { Card, NeonCard, Button, Input, CustomSelect, CustomDatePicker, CustomMonthPicker, Badge, Modal, ToastContainer, ToastType, BarChart, Avatar } from './UI';
 import { generatePinyinInitials } from '../services/geminiService';
 import { UserPlus, Calendar, Check, X, Pencil, Calculator, Save, User, KeyRound, Briefcase, DollarSign, Clock, Trash2, LockKeyhole, AlertTriangle, BarChart3, TrendingUp, Search, ChevronRight } from 'lucide-react';
 
@@ -47,12 +47,22 @@ const getSalaryStatus = (emp: Employee, workMonthStr: string): 'NOT_JOINED' | 'P
   return workYearMonth < probationTime ? 'PROBATION' : 'OFFICIAL';
 };
 
+/**
+ * Big/Small Week Logic
+ * 1. Mon-Fri: Work
+ * 2. Sun: Rest
+ * 3. Sat: Alternating. 
+ *    - 1st Sat (Index 0): Rest
+ *    - 2nd Sat (Index 1): Work
+ *    - 3rd Sat (Index 2): Rest
+ *    - 4th Sat (Index 3): Work
+ */
 const isWorkDay = (date: Date): boolean => {
     const day = date.getDay();
     if (day === 0) return false; // Sunday is always off
     if (day >= 1 && day <= 5) return true; // Mon-Fri is work
 
-    // It is Saturday (day === 6)
+    // Saturday Logic
     const year = date.getFullYear();
     const month = date.getMonth();
     const dayOfMonth = date.getDate();
@@ -73,10 +83,9 @@ const isWorkDay = (date: Date): boolean => {
         }
     }
 
-    // Index 0 (1st Sat) -> Double Break (Rest) -> False
-    // Index 1 (2nd Sat) -> Single Break (Work) -> True
-    // Index 2 (3rd Sat) -> Double Break (Rest) -> False
-    // Index 3 (4th Sat) -> Single Break (Work) -> True
+    // Odd index saturdays (1, 3, 5...) are Work days in this logic (Index starts at 0)
+    // Index 0 (1st Sat) -> Rest (False)
+    // Index 1 (2nd Sat) -> Work (True)
     return saturdayIndex !== -1 && saturdayIndex % 2 !== 0;
 };
 
@@ -348,6 +357,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onResetPassword,
   onUpdateLeaveStatus,
   onSaveSalary,
+  onImportData,
+  onExportData,
   onLogout
 }) => {
   const [activeTab, setActiveTab] = useState<'employees' | 'leaves' | 'salary' | 'reports'>('employees');
@@ -579,25 +590,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               const systemNetWorkDays = rec.manualWorkDays && rec.manualWorkDays > 0 ? rec.manualWorkDays : undefined;
               
               // Calculate standard days for that specific WORK MONTH for display
-              // We need to re-calculate it since we don't store it in the record (only in runtime)
-              // But for the tooltip, we can just estimate or store it? 
-              // Better to calculate it on the fly here using getMonthlyStandardDays(displayLabel)
               const stdDays = getMonthlyStandardDays(displayLabel);
 
               details = {
                 base: rec.standardSalary || rec.basicSalary,
                 deduction: rec.leaveDeduction || 0,
                 bonus: rec.bonusAmount,
-                attendanceBonus: rec.attendanceBonus, // Pass attendance bonus
+                attendanceBonus: rec.attendanceBonus,
                 real: rec.totalSalary,
-                days: systemNetWorkDays || Math.round((rec.basicSalary / (rec.standardSalary || 1)) * stdDays), // Rough estimate if not stored, but better to use what we have
-                standardDays: stdDays // Pass standard days for comparison
+                days: systemNetWorkDays || Math.round((rec.basicSalary / (rec.standardSalary || 1)) * stdDays), 
+                standardDays: stdDays 
               };
               
-              // Refine days calculation if we have enough info
               if (rec.standardSalary && rec.standardSalary > 0 && rec.basicSalary !== undefined) {
-                  // Basic Salary = (Standard / StandardDays) * WorkedDays
-                  // WorkedDays = (Basic * StandardDays) / Standard
                   const calculatedDays = Math.round((rec.basicSalary * stdDays) / rec.standardSalary);
                   details.days = rec.manualWorkDays && rec.manualWorkDays > 0 ? rec.manualWorkDays : calculatedDays;
               }
@@ -621,7 +626,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   return (
     <div className="min-h-screen bg-nexus-dark text-nexus-text p-4 md:p-8">
       <ToastContainer toasts={toasts} removeToast={removeToast} />
-      {/* ... Header and Tabs ... */}
+      
       <div className="max-w-6xl mx-auto">
         <header className="flex flex-col md:flex-row justify-between items-center mb-10 gap-6 border-b border-white/5 pb-6">
           <div className="text-center md:text-left">
@@ -663,8 +668,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
         </div>
 
-        {/* ... Tab Contents ... */}
         <div className="min-h-[600px]">
+            {/* EMPLOYEES TAB */}
             {activeTab === 'employees' && (
               <div className="space-y-6">
                   <div className="flex justify-between items-center px-2">
@@ -813,12 +818,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           </div>
                        </div>
                        
-                       <div className="flex items-center gap-4 bg-black/20 p-1 rounded-xl border border-white/5">
-                          <input 
-                            type="month" 
+                       {/* UPDATED: Custom Month Picker */}
+                       <div className="flex items-center gap-4">
+                          <CustomMonthPicker
                             value={selectedMonth} 
-                            onChange={(e) => setSelectedMonth(e.target.value)}
-                            className="bg-transparent text-white text-sm font-mono focus:outline-none text-center px-4 py-1"
+                            onChange={setSelectedMonth}
                           />
                        </div>
 
