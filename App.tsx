@@ -78,9 +78,15 @@ const App: React.FC = () => {
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
+    // REAL-TIME POLLING (Every 15s)
+    const pollInterval = setInterval(() => {
+        loadData();
+    }, 15000);
+
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      clearInterval(pollInterval);
     };
   }, []);
 
