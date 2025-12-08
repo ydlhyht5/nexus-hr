@@ -11,7 +11,7 @@ interface AdminDashboardProps {
   onAddEmployee: (employee: Employee) => void;
   onUpdateEmployee: (employee: Employee) => void;
   onDeleteEmployee: (id: string) => void;
-  onResetPassword: (id: string) => void;
+  onResetPassword: (id: string, newPass?: string) => void;
   onUpdateLeaveStatus: (id: string, status: LeaveStatus, reason?: string) => void;
   onSaveSalary: (record: SalaryRecord) => void;
   onImportData: (file: File) => void;
@@ -74,6 +74,12 @@ const SalaryRow: React.FC<{
 
   const handleSave = () => {
     if (isNotJoined) return;
+    
+    if (salesNum < 0 || rateNum < 0) {
+        addToast('销售业绩和提成比例不能为负数', 'error');
+        return;
+    }
+
     const record: SalaryRecord = {
       id: recordId,
       employeeId: emp.id,
@@ -123,8 +129,11 @@ const SalaryRow: React.FC<{
               type="number" 
               className="bg-transparent border-none text-sm text-white focus:ring-0 w-full outline-none p-0"
               placeholder="0"
+              min="0"
               value={sales}
-              onChange={e => setSales(e.target.value)}
+              onChange={e => {
+                  if (parseFloat(e.target.value) >= 0 || e.target.value === '') setSales(e.target.value);
+              }}
               disabled={isNotJoined}
            />
         </div>
@@ -135,8 +144,11 @@ const SalaryRow: React.FC<{
               type="number" 
               className="bg-transparent border-none text-sm text-white focus:ring-0 w-full outline-none p-0 text-center"
               placeholder="0"
+              min="0"
               value={rate}
-              onChange={e => setRate(e.target.value)}
+              onChange={e => {
+                  if (parseFloat(e.target.value) >= 0 || e.target.value === '') setRate(e.target.value);
+              }}
               disabled={isNotJoined}
            />
            <span className="text-nexus-muted text-xs pr-1">%</span>
@@ -189,6 +201,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // -- Modal & Form State --
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  
+  // -- Password Reset State --
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const [resetTargetId, setResetTargetId] = useState<string | null>(null);
+  const [newResetPassword, setNewResetPassword] = useState('');
   
   const [newEmp, setNewEmp] = useState({
     name: '',
@@ -298,8 +315,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
 
     if (newEmp.probationSalary > newEmp.fullSalary) {
-      // NOTE: User requested probation salary can be EQUAL to full salary now, previous restriction relaxed if needed,
-      // but prompted request said "less than or equal". Code here enforces "not greater than".
       addToast('试用期工资不得高于转正工资', 'error');
       return;
     }
@@ -328,6 +343,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
     setIsModalOpen(false);
     resetForm();
+  };
+
+  // --- Reset Password Logic ---
+  const openResetModal = (id: string) => {
+      setResetTargetId(id);
+      setNewResetPassword('');
+      setIsResetModalOpen(true);
+  };
+  
+  const handleResetSubmit = () => {
+      if (!resetTargetId) return;
+      if (!newResetPassword) {
+          addToast('请输入新密码', 'error');
+          return;
+      }
+      onResetPassword(resetTargetId, newResetPassword);
+      addToast('密码已重置', 'success');
+      setIsResetModalOpen(false);
   };
 
   const handleReject = (id: string) => {
@@ -471,12 +504,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                           size="sm" 
                                           className="flex-1 text-xs" 
                                           title="重置密码"
-                                          onClick={() => {
-                                              if(confirm(`确定要重置 ${emp.name} 的密码为默认密码 (1234) 吗?`)) {
-                                                  onResetPassword(emp.id);
-                                                  addToast('密码已重置', 'info');
-                                              }
-                                          }}
+                                          onClick={() => openResetModal(emp.id)}
                                       >
                                           <LockKeyhole size={12}/> 重置
                                       </Button>
@@ -765,6 +793,39 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
             </div>
          </div>
+      </Modal>
+
+      {/* --- RESET PASSWORD MODAL --- */}
+      <Modal
+         isOpen={isResetModalOpen}
+         onClose={() => setIsResetModalOpen(false)}
+         title="重置员工密码"
+         footer={
+             <div className="flex gap-4">
+                 <Button variant="ghost" onClick={() => setIsResetModalOpen(false)} className="flex-1">取消</Button>
+                 <Button variant="primary" onClick={handleResetSubmit} className="flex-1">确认重置</Button>
+             </div>
+         }
+      >
+          <div className="space-y-4">
+              <div className="bg-blue-500/10 border border-blue-500/20 p-4 rounded-xl flex items-start gap-3">
+                  <KeyRound size={20} className="text-blue-400 mt-0.5 shrink-0" />
+                  <div className="text-sm text-blue-200">
+                      管理员可以直接为员工设置一个新的临时密码。
+                      <br/>
+                      <span className="opacity-70 text-xs mt-1 block">注意：员工在下次登录时，系统将强制要求其修改此密码。</span>
+                  </div>
+              </div>
+              
+              <Input 
+                  type="text"
+                  label="设置新密码"
+                  placeholder="请输入新密码..."
+                  value={newResetPassword}
+                  onChange={e => setNewResetPassword(e.target.value)}
+                  autoFocus
+              />
+          </div>
       </Modal>
 
     </div>
