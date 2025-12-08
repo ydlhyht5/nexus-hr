@@ -742,8 +742,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             {/* LEAVES TAB (UPDATED) */}
             {activeTab === 'leaves' && (
               <div className="max-w-4xl mx-auto space-y-6">
-                 {/* Filter Header */}
-                 <div className="flex justify-between items-center bg-white/5 p-4 rounded-2xl border border-white/5 backdrop-blur-md">
+                 {/* Filter Header - Added relative z-20 */}
+                 <div className="flex justify-between items-center bg-white/5 p-4 rounded-2xl border border-white/5 backdrop-blur-md relative z-20">
                     <h2 className="text-lg font-bold text-white flex items-center gap-2">
                         <Calendar size={20} className="text-nexus-accent"/> 请假审批列表
                     </h2>
@@ -828,9 +828,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             {/* SALARY TAB */}
             {activeTab === 'salary' && (
               <div>
-                  {/* ... (Kept same) ... */}
                   <Card className="min-h-[500px] border-none bg-transparent shadow-none p-0">
-                    <div className="bg-nexus-card border border-white/5 rounded-2xl p-6 mb-6 flex flex-col md:flex-row items-center justify-between gap-6">
+                    {/* Added relative z-20 to header */}
+                    <div className="bg-nexus-card border border-white/5 rounded-2xl p-6 mb-6 flex flex-col md:flex-row items-center justify-between gap-6 relative z-20">
                        <div className="flex items-center gap-4">
                           <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/20">
                               <Calculator size={24} className="text-white" />
