@@ -286,6 +286,12 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
                                       <div className="uppercase mb-1">提成比例</div>
                                       <div className="text-white font-mono">{sal.bonusRate}%</div>
                                   </div>
+                                  {sal.attendanceBonus !== undefined && sal.attendanceBonus > 0 && (
+                                      <div>
+                                          <div className="uppercase mb-1 text-yellow-400">全勤奖</div>
+                                          <div className="text-yellow-400 font-mono">+¥{Math.round(sal.attendanceBonus).toLocaleString()}</div>
+                                      </div>
+                                  )}
                                   <div>
                                       <div className="uppercase mb-1">提成奖金</div>
                                       <div className="text-green-300 font-mono">+¥{Math.round(sal.bonusAmount).toLocaleString()}</div>
