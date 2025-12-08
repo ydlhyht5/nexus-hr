@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Employee, Gender, LeaveRequest, LeaveStatus, SalaryRecord } from '../types';
-import { Card, NeonCard, Button, Input, Select, Badge, Modal, ToastContainer, ToastType, BarChart, Avatar } from './UI';
+import { Card, NeonCard, Button, Input, CustomSelect, CustomDatePicker, Badge, Modal, ToastContainer, ToastType, BarChart, Avatar } from './UI';
 import { generatePinyinInitials } from '../services/geminiService';
 import { UserPlus, Calendar, Check, X, Pencil, Calculator, Save, User, KeyRound, Briefcase, DollarSign, Clock, Trash2, LockKeyhole, AlertTriangle, BarChart3, TrendingUp, Search, ChevronRight } from 'lucide-react';
 
@@ -19,8 +19,7 @@ interface AdminDashboardProps {
   onLogout: () => void;
 }
 
-// --- Helper Functions ---
-
+// ... Helper Functions (isWorkDay, etc. - kept same as before) ...
 const getPreviousMonth = (monthStr: string): string => {
     const [year, month] = monthStr.split('-').map(Number);
     const date = new Date(year, month - 2, 1); 
@@ -47,23 +46,15 @@ const getSalaryStatus = (emp: Employee, workMonthStr: string): 'NOT_JOINED' | 'P
   return workYearMonth < probationTime ? 'PROBATION' : 'OFFICIAL';
 };
 
-/**
- * Check if a date is a working day based on Big/Small week rule.
- * Mon-Fri: Work
- * Sun: Rest
- * Sat: Alternates (1st-Rest, 2nd-Work, 3rd-Rest, 4th-Work...)
- */
 const isWorkDay = (date: Date): boolean => {
     const day = date.getDay();
-    if (day === 0) return false; // Sunday is always off
-    if (day >= 1 && day <= 5) return true; // Mon-Fri is work
+    if (day === 0) return false; 
+    if (day >= 1 && day <= 5) return true; 
 
-    // It is Saturday (day === 6)
     const year = date.getFullYear();
     const month = date.getMonth();
     const dayOfMonth = date.getDate();
 
-    // Find index of this Saturday among all Saturdays in the month
     let saturdayIndex = -1;
     let count = 0;
     const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -78,17 +69,9 @@ const isWorkDay = (date: Date): boolean => {
             count++;
         }
     }
-
-    // Index 0 (1st Sat) -> Double Break (Rest) -> False
-    // Index 1 (2nd Sat) -> Single Break (Work) -> True
-    // Index 2 (3rd Sat) -> Double Break (Rest) -> False
-    // Index 3 (4th Sat) -> Single Break (Work) -> True
     return saturdayIndex !== -1 && saturdayIndex % 2 !== 0;
 };
 
-/**
- * Calculate total standard working days in a month (Denominator for Daily Rate)
- */
 const getMonthlyStandardDays = (monthStr: string): number => {
     const [year, month] = monthStr.split('-').map(Number);
     const daysInMonth = new Date(year, month, 0).getDate();
@@ -101,30 +84,23 @@ const getMonthlyStandardDays = (monthStr: string): number => {
     return workDays;
 };
 
-/**
- * Calculate actual payable working days for an employee (Integers only)
- * Accounts for Join Date.
- */
 const calculateActualWorkDays = (emp: Employee, monthStr: string): number => {
     const [year, month] = monthStr.split('-').map(Number);
     const monthStart = new Date(year, month - 1, 1);
     const monthEnd = new Date(year, month, 0);
     const joinDate = new Date(emp.joinDate);
 
-    // Normalize join date to start of day
     joinDate.setHours(0,0,0,0);
     monthStart.setHours(0,0,0,0);
     monthEnd.setHours(0,0,0,0);
 
     if (joinDate > monthEnd) return 0;
 
-    // Start counting from whichever is later: Month Start or Join Date
     const startDate = joinDate > monthStart ? joinDate : monthStart;
     
     let workDays = 0;
     const current = new Date(startDate);
     
-    // Iterate day by day
     while (current <= monthEnd) {
         if (isWorkDay(current)) {
             workDays++;
@@ -134,9 +110,6 @@ const calculateActualWorkDays = (emp: Employee, monthStr: string): number => {
     return workDays;
 };
 
-/**
- * Calculate leave deductions (Only counts working days)
- */
 const calculateLeaveDaysInMonth = (requests: LeaveRequest[], empId: string, monthStr: string): number => {
     const [year, month] = monthStr.split('-').map(Number);
     const monthStart = new Date(year, month - 1, 1);
@@ -153,7 +126,6 @@ const calculateLeaveDaysInMonth = (requests: LeaveRequest[], empId: string, mont
         let current = new Date(req.startDate);
         const end = new Date(req.endDate);
 
-        // Clamp to current month
         if (current < monthStart) current = new Date(monthStart);
         const effectiveEnd = end > monthEnd ? monthEnd : end;
 
@@ -168,7 +140,7 @@ const calculateLeaveDaysInMonth = (requests: LeaveRequest[], empId: string, mont
     return leaveWorkDays;
 };
 
-// --- Salary Row Component ---
+// ... SalaryRow Component (Kept same) ...
 const SalaryRow: React.FC<{
   emp: Employee;
   payoutMonth: string;
@@ -183,25 +155,14 @@ const SalaryRow: React.FC<{
   const status = getSalaryStatus(emp, workMonth);
   const isNotJoined = status === 'NOT_JOINED';
   
-  // 1. Base Calculations
   const baseSalarySetting = status === 'PROBATION' ? emp.probationSalary : emp.fullSalary;
-  
-  // A. Total standard working days in this month (e.g., 25 days)
   const monthlyStandardDays = getMonthlyStandardDays(workMonth);
-  
-  // B. Employee's potential working days based on join date (Integer)
   const potentialWorkDays = isNotJoined ? 0 : calculateActualWorkDays(emp, workMonth);
-  
-  // C. Leave days that fall on working days (Integer)
   const leaveDays = isNotJoined ? 0 : calculateLeaveDaysInMonth(leaveRequests, emp.id, workMonth);
-  
-  // D. Net Actual Working Days (Integer)
   const systemNetWorkDays = Math.max(0, potentialWorkDays - leaveDays);
 
-  // 2. State
   const [sales, setSales] = useState(isNotJoined ? '0' : (existingRecord?.salesAmount?.toString() || ''));
   const [rate, setRate] = useState(isNotJoined ? '0' : (existingRecord?.bonusRate?.toString() || ''));
-  // Manual Override State
   const [manualDays, setManualDays] = useState(isNotJoined ? '0' : (existingRecord?.manualWorkDays?.toString() || '0'));
 
   useEffect(() => {
@@ -217,21 +178,14 @@ const SalaryRow: React.FC<{
      }
   }, [payoutMonth, salaryRecords, emp.id, isNotJoined]);
 
-  // 3. Final Calculation Logic
   const salesNum = parseFloat(sales) || 0;
   const rateNum = parseFloat(rate) || 0;
   const manualDaysNum = parseFloat(manualDays) || 0;
   
-  // Which days to use for calc? Manual Override > System Calc
   const finalDays = manualDaysNum > 0 ? manualDaysNum : systemNetWorkDays;
-  
-  // Daily Rate = Base / Standard Days (Avoid division by zero)
   const dailyRate = monthlyStandardDays > 0 ? (baseSalarySetting / monthlyStandardDays) : 0;
-  
-  // Calculated Base = Daily Rate * Final Worked Days
   const calculatedBaseSalary = isNotJoined ? 0 : (dailyRate * finalDays);
   
-  // Reporting fields
   const standardSalaryForMonth = isNotJoined ? 0 : baseSalarySetting; 
   const leaveDeductionAmount = isNotJoined ? 0 : (dailyRate * leaveDays);
 
@@ -251,7 +205,7 @@ const SalaryRow: React.FC<{
       employeeName: emp.name,
       month: payoutMonth,
       basicSalary: calculatedBaseSalary, 
-      manualWorkDays: manualDaysNum, // Save the override
+      manualWorkDays: manualDaysNum,
       standardSalary: standardSalaryForMonth, 
       leaveDeduction: manualDaysNum > 0 ? 0 : leaveDeductionAmount, 
       salesAmount: salesNum,
@@ -295,7 +249,6 @@ const SalaryRow: React.FC<{
             </>
         )}
       </td>
-      {/* Manual Days Override Column */}
       <td className="p-4">
          <div className={`flex items-center gap-2 bg-black/20 rounded-lg p-1 border border-white/5 w-24 ${isNotJoined ? 'pointer-events-none opacity-50' : ''}`}>
              <input 
@@ -339,7 +292,7 @@ const SalaryRow: React.FC<{
       </td>
       <td className="p-4">
         <div className="font-bold text-lg text-white font-mono">¥{total.toFixed(0)}</div>
-        <div className="text-[10px] text-nexus-muted">底薪: {calculatedBaseSalary.toFixed(0)}</div>
+        <div className="text-[10px] text-nexus-muted">基本工资: {calculatedBaseSalary.toFixed(0)}</div>
       </td>
       <td className="p-4 text-right">
          <Button 
@@ -370,7 +323,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onLogout
 }) => {
   const [activeTab, setActiveTab] = useState<'employees' | 'leaves' | 'salary' | 'reports'>('employees');
-  
   const [toasts, setToasts] = useState<{ id: string; message: string; type: ToastType }[]>([]);
   const addToast = (message: string, type: ToastType) => {
     const id = Date.now().toString();
@@ -378,19 +330,31 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
   const removeToast = (id: string) => setToasts(prev => prev.filter(t => t.id !== id));
 
+  // Polling notification logic
+  const prevPendingRef = useRef(0);
+  const activeLeaveRequests = leaveRequests.filter(req => 
+      employees.some(e => e.id === req.employeeId)
+  );
+  
+  useEffect(() => {
+      const currentPending = activeLeaveRequests.filter(r => r.status === LeaveStatus.PENDING).length;
+      if (currentPending > prevPendingRef.current) {
+          addToast('收到新的请假申请', 'info');
+      }
+      prevPendingRef.current = currentPending;
+  }, [leaveRequests, employees]); // Depend on filtered list
+
+  // ... (Other state and handlers) ...
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   const [resetTargetId, setResetTargetId] = useState<string | null>(null);
   const [newResetPassword, setNewResetPassword] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<{id: string, name: string} | null>(null);
-  
-  // Reports State
   const [companyPeriod, setCompanyPeriod] = useState<6 | 12>(6);
   const [employeePeriod, setEmployeePeriod] = useState<6 | 12>(6);
   const [reportEmployeeId, setReportEmployeeId] = useState<string | null>(null);
   const [reportSearch, setReportSearch] = useState('');
-
   const [newEmp, setNewEmp] = useState({
     name: '',
     jobTitle: '',
@@ -400,7 +364,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     fullSalary: 0,
     probationMonths: 3
   });
-  
   const [generatedId, setGeneratedId] = useState('');
   const [pinyinCache, setPinyinCache] = useState('');
   const [rejectId, setRejectId] = useState<string | null>(null);
@@ -411,11 +374,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   });
 
   const workMonth = getPreviousMonth(selectedMonth);
-
-  // Filter leave requests to exclude deleted employees
-  const activeLeaveRequests = leaveRequests.filter(req => 
-      employees.some(e => e.id === req.employeeId)
-  );
 
   const calculateProbationStatus = () => {
      if (!newEmp.joinDate) return '-';
@@ -525,6 +483,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     resetForm();
   };
 
+  // ... (Other handlers like resetPassword, confirmDelete, reject, approve) ...
   const openResetModal = (id: string) => {
       setResetTargetId(id);
       setNewResetPassword('');
@@ -571,7 +530,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }, 0);
   };
 
-  // Reports Helpers
   const getChartData = (period: 6 | 12, targetEmpId: string | 'all') => {
     const data = [];
     const now = new Date();
@@ -590,7 +548,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             if (rec) {
               value = rec.totalSalary;
               details = {
-                base: rec.standardSalary || rec.basicSalary, // Use standard if available, else basic
+                base: rec.standardSalary || rec.basicSalary,
                 deduction: rec.leaveDeduction || 0,
                 bonus: rec.bonusAmount,
                 real: rec.totalSalary
@@ -615,7 +573,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   return (
     <div className="min-h-screen bg-nexus-dark text-nexus-text p-4 md:p-8">
       <ToastContainer toasts={toasts} removeToast={removeToast} />
-      
+      {/* ... Header and Tabs ... */}
       <div className="max-w-6xl mx-auto">
         <header className="flex flex-col md:flex-row justify-between items-center mb-10 gap-6 border-b border-white/5 pb-6">
           <div className="text-center md:text-left">
@@ -657,6 +615,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
         </div>
 
+        {/* ... Tab Contents ... */}
         <div className="min-h-[600px]">
             {activeTab === 'employees' && (
               <div className="space-y-6">
@@ -723,6 +682,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
             )}
 
+            {/* LEAVES TAB */}
             {activeTab === 'leaves' && (
               <div className="max-w-4xl mx-auto">
                  {activeLeaveRequests.length === 0 ? (
@@ -788,6 +748,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
             )}
 
+            {/* SALARY TAB */}
             {activeTab === 'salary' && (
               <div>
                   <Card className="min-h-[500px] border-none bg-transparent shadow-none p-0">
@@ -853,6 +814,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
             )}
 
+            {/* REPORTS TAB */}
             {activeTab === 'reports' && (
               <div className="space-y-6">
                  <Card className="bg-[#0B0C15]/50">
@@ -956,11 +918,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             )}
             <div className="grid grid-cols-2 gap-6">
                 <Input label="姓名 (中文/英文)" placeholder="如: 李茹 或 Mike" value={newEmp.name} onChange={e => handleNameChange(e.target.value)} autoFocus />
-                <Input type="date" label="入职日期" value={newEmp.joinDate} onChange={e => setNewEmp({...newEmp, joinDate: e.target.value})} />
+                <CustomDatePicker label="入职日期" value={newEmp.joinDate} onChange={(date) => setNewEmp({...newEmp, joinDate: date})} />
             </div>
             <div className="grid grid-cols-2 gap-6">
                 <Input label="职位名称" placeholder="如: 销售经理" value={newEmp.jobTitle} onChange={e => setNewEmp({...newEmp, jobTitle: e.target.value})} />
-                <Select label="性别" options={[{ value: Gender.MALE, label: '男' }, { value: Gender.FEMALE, label: '女' }, { value: Gender.OTHER, label: '其他' }]} value={newEmp.gender} onChange={e => setNewEmp({...newEmp, gender: e.target.value as Gender})} />
+                <CustomSelect label="性别" options={[{ value: Gender.MALE, label: '男' }, { value: Gender.FEMALE, label: '女' }, { value: Gender.OTHER, label: '其他' }]} value={newEmp.gender} onChange={(val) => setNewEmp({...newEmp, gender: val as Gender})} />
             </div>
             <div className="border-t border-white/5 my-2"></div>
             <div className="bg-black/20 p-4 rounded-2xl border border-white/5">
@@ -982,6 +944,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
          </div>
       </Modal>
 
+      {/* ... Other Modals (Reset Password, Delete Confirmation) ... */}
       <Modal isOpen={isResetModalOpen} onClose={() => setIsResetModalOpen(false)} title="重置员工密码" footer={
              <div className="flex gap-4">
                  <Button variant="ghost" onClick={() => setIsResetModalOpen(false)} className="flex-1">取消</Button>
