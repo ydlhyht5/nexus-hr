@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Employee, LeaveRequest, LeaveStatus, SalaryRecord } from '../types';
 import { Card, Button, Input, Badge, CustomDatePicker, CustomMonthPicker, BarChart, UI as GlobalUI } from './UI';
@@ -74,14 +75,15 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
   // Trend Chart State
   const [chartPeriod, setChartPeriod] = useState<6 | 12>(6);
 
-  // Initialize filter with latest salary month
+  // Initialize filter with latest WORK month (derived from latest Payout month)
   useEffect(() => {
       if (salaryRecords.length > 0 && !salaryFilterMonth) {
           const myRecords = salaryRecords.filter(r => r.employeeId === employee.id);
           if (myRecords.length > 0) {
-              // Sort desc
+              // Sort desc by Payout Month
               myRecords.sort((a, b) => b.month.localeCompare(a.month));
-              setSalaryFilterMonth(myRecords[0].month);
+              // Set default to WORK MONTH (Previous Month of Payout)
+              setSalaryFilterMonth(getPreviousMonth(myRecords[0].month));
           }
       }
   }, [salaryRecords, employee.id]);
@@ -130,9 +132,10 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
   };
 
   // Filter and Sort Salaries
+  // Filtering Logic: Match Work Month (getPreviousMonth(r.month)) to Selected Month
   const filteredSalaries = salaryRecords
     .filter(r => r.employeeId === employee.id)
-    .filter(r => salaryFilterMonth ? r.month === salaryFilterMonth : true)
+    .filter(r => salaryFilterMonth ? getPreviousMonth(r.month) === salaryFilterMonth : true)
     .sort((a, b) => b.month.localeCompare(a.month)); // Newest first
 
   // Data for Trend Chart (Bar Chart Logic)
@@ -151,25 +154,32 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
         if (rec) {
             value = rec.totalSalary;
             
-            // Calculate details for tooltip
-            // Standard Days for the work month
             const stdDays = getMonthlyStandardDays(displayLabel);
             
-            // Estimate days if not manual
+            // Standard Salary (Base)
+            const standardSalary = rec.standardSalary || rec.basicSalary;
+            
+            // Deduction Logic:
+            // 1. Explicit
+            let effectiveDeduction = rec.leaveDeduction || 0;
+            // 2. Fallback inference for old data: If Standard > Basic and not manual, assume diff is deduction
+            if (effectiveDeduction === 0 && rec.standardSalary && rec.basicSalary < rec.standardSalary && !rec.manualWorkDays) {
+                effectiveDeduction = rec.standardSalary - rec.basicSalary;
+            }
+
             let days = rec.manualWorkDays;
-            if (!days && rec.standardSalary && rec.standardSalary > 0) {
-                // If Paid Basic < Standard, days will be lower
-                days = Math.round((rec.basicSalary / rec.standardSalary) * stdDays);
+            if (!days && standardSalary > 0) {
+                days = Math.round(((standardSalary - effectiveDeduction) / standardSalary) * stdDays);
             }
 
             details = {
                 // Pass Standard (Gross) Salary as Base so tooltip math works (Standard - Deduction = Net)
-                base: rec.standardSalary || rec.basicSalary || 0,
-                deduction: rec.leaveDeduction || 0,
+                base: standardSalary,
+                deduction: effectiveDeduction,
                 bonus: rec.bonusAmount,
                 attendanceBonus: rec.attendanceBonus,
                 real: rec.totalSalary,
-                days: days,
+                days: days || stdDays, // Fallback to full days if calc fails
                 standardDays: stdDays
             };
         }
@@ -211,7 +221,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
       <div className="max-w-5xl w-full">
         <header className="flex justify-between items-center mb-8">
           <div className="flex items-center gap-3">
-             <div className="h-10 w-10 md:h-12 md:w-12 rounded-full bg-gradient-to-tr from-cyan-500 to-blue-500 flex items-center justify-center font-bold text-white shadow-neon text-lg">
+             <div className="h-10 w-10 md:h-12 md:h-12 w-12 rounded-full bg-gradient-to-tr from-cyan-500 to-blue-500 flex items-center justify-center font-bold text-white shadow-neon text-lg">
                {employee.name.charAt(0)}
              </div>
              <div>
@@ -404,19 +414,27 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
                         <h2 className="text-xl font-bold flex items-center gap-2">
                             <DollarSign size={20} className="text-emerald-400" /> 工资发放记录
                         </h2>
+                        {/* Date Picker showing WORK MONTH for clarity */}
                         <div className="w-40">
                             <CustomMonthPicker value={salaryFilterMonth} onChange={setSalaryFilterMonth} />
                         </div>
                     </div>
                     <div className="space-y-4 relative z-10">
                         {filteredSalaries.length === 0 ? (
-                            <p className="text-nexus-muted text-center py-8">暂无工资记录。</p>
+                            <p className="text-nexus-muted text-center py-8">
+                                {salaryFilterMonth ? `${salaryFilterMonth} 暂无工资记录。` : '暂无工资记录。'}
+                            </p>
                         ) : (
                             filteredSalaries.map(sal => {
                                 // Explicitly use saved standard Salary (gross) or fallback to basic
                                 const stdSalary = sal.standardSalary || sal.basicSalary;
-                                // Explicit deduction
-                                const deduction = sal.leaveDeduction || 0;
+                                
+                                // Explicit deduction, or fallback inference for old records if missing
+                                let deduction = sal.leaveDeduction || 0;
+                                if (deduction === 0 && sal.standardSalary && sal.basicSalary < sal.standardSalary && !sal.manualWorkDays) {
+                                    deduction = sal.standardSalary - sal.basicSalary;
+                                }
+
                                 // Work month string (previous month)
                                 const workMonthStr = getPreviousMonth(sal.month);
 
@@ -479,6 +497,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
                                         
                                         <div className="grid grid-cols-2 md:grid-cols-4 gap-y-4 gap-x-2 text-sm border-t border-white/5 pt-4">
                                             <div>
+                                                {/* CONDITIONAL DISPLAY: If there is a deduction, label this as Standard Salary. Otherwise Basic. */}
                                                 <div className="text-xs text-nexus-muted uppercase mb-1">标准薪资</div>
                                                 <div className="text-white font-mono">¥{Math.round(stdSalary).toLocaleString()}</div>
                                             </div>
@@ -490,10 +509,13 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
                                                 <div className="text-xs text-nexus-muted uppercase mb-1">全勤奖</div>
                                                 <div className="text-yellow-400 font-mono">¥{Math.round(sal.attendanceBonus || 0).toLocaleString()}</div>
                                             </div>
-                                            <div>
-                                                <div className="text-xs text-nexus-muted uppercase mb-1">请假扣除</div>
-                                                <div className="text-red-400 font-mono">-¥{Math.round(deduction).toLocaleString()}</div>
-                                            </div>
+                                            {/* CONDITIONAL DISPLAY: Only show if there IS a deduction */}
+                                            {deduction > 0 && (
+                                                <div>
+                                                    <div className="text-xs text-nexus-muted uppercase mb-1">请假扣除</div>
+                                                    <div className="text-red-400 font-mono">-¥{Math.round(deduction).toLocaleString()}</div>
+                                                </div>
+                                            )}
                                         </div>
 
                                         <div className="mt-4 flex justify-end">
