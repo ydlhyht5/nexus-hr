@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Employee, Gender, LeaveRequest, LeaveStatus, SalaryRecord } from '../types';
-import { Card, NeonCard, Button, Input, Select, Badge, Modal, ToastContainer, ToastType, BarChart } from './UI';
+import { Card, NeonCard, Button, Input, Select, Badge, Modal, ToastContainer, ToastType, BarChart, Avatar } from './UI';
 import { generatePinyinInitials } from '../services/geminiService';
-import { UserPlus, Calendar, Check, X, Pencil, Calculator, Save, User, KeyRound, Briefcase, DollarSign, Clock, Trash2, LockKeyhole, AlertTriangle, BarChart3, TrendingUp } from 'lucide-react';
+import { UserPlus, Calendar, Check, X, Pencil, Calculator, Save, User, KeyRound, Briefcase, DollarSign, Clock, Trash2, LockKeyhole, AlertTriangle, BarChart3, TrendingUp, Search, ChevronRight } from 'lucide-react';
 
 interface AdminDashboardProps {
   employees: Employee[];
@@ -308,8 +308,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [deleteTarget, setDeleteTarget] = useState<{id: string, name: string} | null>(null);
   
   // -- Reports State --
-  const [reportPeriod, setReportPeriod] = useState<6 | 12>(6);
-  const [reportEmployeeId, setReportEmployeeId] = useState<string>('all');
+  const [companyPeriod, setCompanyPeriod] = useState<6 | 12>(6);
+  const [employeePeriod, setEmployeePeriod] = useState<6 | 12>(6);
+  const [reportEmployeeId, setReportEmployeeId] = useState<string | null>(null);
+  const [reportSearch, setReportSearch] = useState('');
 
   const [newEmp, setNewEmp] = useState({
     name: '',
@@ -512,36 +514,42 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   // --- Reports Logic ---
-  const getChartData = () => {
+  const getChartData = (period: 6 | 12, targetEmpId: string | 'all') => {
     const data = [];
     const now = new Date();
     
     // Generate last N months
-    for (let i = reportPeriod - 1; i >= 0; i--) {
+    for (let i = period - 1; i >= 0; i--) {
         const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
         const monthStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
         
         let value = 0;
         
-        if (reportEmployeeId === 'all') {
+        if (targetEmpId === 'all') {
             // Sum all records for this month
             value = salaryRecords
                 .filter(r => r.month === monthStr)
                 .reduce((acc, r) => acc + r.totalSalary, 0);
         } else {
             // Specific employee
-            const rec = salaryRecords.find(r => r.month === monthStr && r.employeeId === reportEmployeeId);
+            const rec = salaryRecords.find(r => r.month === monthStr && r.employeeId === targetEmpId);
             value = rec ? rec.totalSalary : 0;
         }
         
         data.push({
             label: monthStr,
             value: value,
-            subLabel: reportEmployeeId === 'all' ? '公司总支出' : '个人收入'
+            subLabel: targetEmpId === 'all' ? '公司总支出' : '个人收入'
         });
     }
     return data;
   };
+
+  // Filter employees for report search
+  const reportEmployees = employees.filter(e => 
+      e.name.toLowerCase().includes(reportSearch.toLowerCase()) || 
+      e.id.toLowerCase().includes(reportSearch.toLowerCase())
+  );
 
   return (
     <div className="min-h-screen bg-nexus-dark text-nexus-text p-4 md:p-8">
@@ -819,66 +827,121 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             {/* 4. REPORTS TAB */}
             {activeTab === 'reports' && (
               <div className="space-y-6">
-                 {/* Filter Controls */}
-                 <Card className="flex flex-col md:flex-row justify-between items-center gap-4">
-                     <div className="flex items-center gap-3">
-                         <div className="bg-purple-500/10 p-2 rounded-lg text-purple-400">
-                             <TrendingUp size={20} />
-                         </div>
-                         <h2 className="text-lg font-bold text-white">薪资支出趋势</h2>
-                     </div>
-                     <div className="flex items-center gap-3 bg-white/5 p-1 rounded-xl">
-                        <button 
-                            onClick={() => setReportPeriod(6)}
-                            className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${reportPeriod === 6 ? 'bg-nexus-accent text-white' : 'text-nexus-muted hover:text-white'}`}
-                        >
-                            最近半年
-                        </button>
-                        <button 
-                            onClick={() => setReportPeriod(12)}
-                            className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${reportPeriod === 12 ? 'bg-nexus-accent text-white' : 'text-nexus-muted hover:text-white'}`}
-                        >
-                            最近一年
-                        </button>
-                     </div>
-                 </Card>
-
                  {/* Company Wide Chart */}
-                 <Card>
-                    <div className="flex justify-between items-end mb-6">
-                        <div>
-                            <div className="text-xs text-nexus-muted uppercase tracking-wider mb-1">公司总支出</div>
-                            <div className="text-3xl font-bold text-white font-mono">
-                                ¥{getChartData().reduce((acc, curr) => acc + curr.value, 0).toLocaleString()}
-                            </div>
+                 <Card className="bg-[#0B0C15]/50">
+                    <div className="flex justify-between items-center mb-6">
+                        <div className="flex items-center gap-3">
+                             <div className="bg-emerald-500/10 p-2 rounded-lg text-emerald-400">
+                                 <TrendingUp size={20} />
+                             </div>
+                             <div>
+                                 <div className="text-xs text-nexus-muted uppercase tracking-wider">公司薪资总支出</div>
+                                 <div className="text-2xl font-bold text-white font-mono mt-1">
+                                     ¥{getChartData(companyPeriod, 'all').reduce((acc, curr) => acc + curr.value, 0).toLocaleString()}
+                                 </div>
+                             </div>
+                        </div>
+                        <div className="flex items-center gap-2 bg-white/5 p-1 rounded-xl">
+                            <button 
+                                onClick={() => setCompanyPeriod(6)}
+                                className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${companyPeriod === 6 ? 'bg-nexus-accent text-white' : 'text-nexus-muted hover:text-white'}`}
+                            >
+                                最近半年
+                            </button>
+                            <button 
+                                onClick={() => setCompanyPeriod(12)}
+                                className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${companyPeriod === 12 ? 'bg-nexus-accent text-white' : 'text-nexus-muted hover:text-white'}`}
+                            >
+                                最近一年
+                            </button>
                         </div>
                     </div>
-                    <BarChart data={getChartData()} height={250} />
+                    <BarChart data={getChartData(companyPeriod, 'all')} height={250} />
                  </Card>
 
                  {/* Employee Breakdown */}
-                 <Card>
-                    <div className="flex justify-between items-center mb-6">
+                 <Card className="bg-[#0B0C15]/50">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                         <h3 className="text-md font-bold text-white flex items-center gap-2">
                             <User size={16} /> 员工个人趋势
                         </h3>
-                        <div className="w-48">
-                            <Select 
-                                options={[
-                                    { value: 'all', label: '全部 (公司总览)' },
-                                    ...employees.map(e => ({ value: e.id, label: e.name }))
-                                ]}
-                                value={reportEmployeeId}
-                                onChange={(e) => setReportEmployeeId(e.target.value)}
-                            />
+                        <div className="flex items-center gap-2 bg-white/5 p-1 rounded-xl self-end">
+                            <button 
+                                onClick={() => setEmployeePeriod(6)}
+                                className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${employeePeriod === 6 ? 'bg-purple-600 text-white' : 'text-nexus-muted hover:text-white'}`}
+                            >
+                                最近半年
+                            </button>
+                            <button 
+                                onClick={() => setEmployeePeriod(12)}
+                                className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${employeePeriod === 12 ? 'bg-purple-600 text-white' : 'text-nexus-muted hover:text-white'}`}
+                            >
+                                最近一年
+                            </button>
                         </div>
                     </div>
-                    <BarChart 
-                        data={getChartData()} 
-                        height={200} 
-                        colorStart="from-purple-500" 
-                        colorEnd="to-indigo-600" 
-                    />
+
+                    {/* Employee Selector Rail */}
+                    <div className="mb-6 space-y-3">
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-nexus-muted" size={14} />
+                            <input 
+                                type="text"
+                                placeholder="搜索员工..."
+                                value={reportSearch}
+                                onChange={(e) => setReportSearch(e.target.value)}
+                                className="w-full bg-black/20 border border-white/5 rounded-xl py-2 pl-9 pr-4 text-xs text-white focus:outline-none focus:border-purple-500/50"
+                            />
+                        </div>
+                        <div className="flex gap-3 overflow-x-auto pb-4 custom-scrollbar">
+                            {/* "All" Option */}
+                            <div 
+                                onClick={() => setReportEmployeeId(null)}
+                                className={`flex-shrink-0 cursor-pointer flex flex-col items-center gap-2 group`}
+                            >
+                                <div className={`h-12 w-12 rounded-xl flex items-center justify-center border transition-all ${!reportEmployeeId ? 'bg-purple-600/20 border-purple-500 text-purple-400 shadow-[0_0_15px_rgba(168,85,247,0.4)]' : 'bg-white/5 border-white/10 text-nexus-muted hover:bg-white/10'}`}>
+                                    <BarChart3 size={20} />
+                                </div>
+                                <span className={`text-[10px] ${!reportEmployeeId ? 'text-purple-400 font-bold' : 'text-nexus-muted'}`}>暂不选择</span>
+                            </div>
+
+                            {reportEmployees.map(emp => (
+                                <div 
+                                    key={emp.id} 
+                                    className="flex-shrink-0 flex flex-col items-center gap-2"
+                                >
+                                    <Avatar 
+                                        name={emp.name} 
+                                        selected={reportEmployeeId === emp.id}
+                                        onClick={() => setReportEmployeeId(emp.id)}
+                                    />
+                                    <span className={`text-[10px] truncate max-w-[60px] ${reportEmployeeId === emp.id ? 'text-purple-400 font-bold' : 'text-nexus-muted'}`}>
+                                        {emp.name}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {reportEmployeeId ? (
+                        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                             <div className="mb-2 text-xs text-purple-400 font-bold flex items-center gap-2">
+                                <span className="w-2 h-2 rounded-full bg-purple-500 animate-pulse"></span>
+                                当前查看: {employees.find(e => e.id === reportEmployeeId)?.name}
+                             </div>
+                             <BarChart 
+                                data={getChartData(employeePeriod, reportEmployeeId)} 
+                                height={200} 
+                                colorStart="from-purple-600" 
+                                colorEnd="to-indigo-600" 
+                             />
+                        </div>
+                    ) : (
+                        <div className="h-[200px] flex flex-col items-center justify-center text-nexus-muted border-2 border-dashed border-white/5 rounded-2xl bg-white/5">
+                            <User size={32} className="opacity-20 mb-2" />
+                            <p className="text-xs">请点击上方头像选择员工查看详情</p>
+                        </div>
+                    )}
                  </Card>
               </div>
             )}
