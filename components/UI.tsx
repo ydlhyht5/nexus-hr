@@ -217,8 +217,17 @@ export const BarChart: React.FC<{ data: any[]; height?: number; colorStart?: str
                     {item.details.days !== undefined && item.details.standardDays !== undefined && (
                         <div className="flex justify-between gap-4 mb-2 bg-white/5 p-1.5 rounded"><span className="text-gray-400">出勤</span><span className="text-white font-mono font-bold">{item.details.days}天 {item.details.days < item.details.standardDays ? <span className="text-red-400 ml-1">(缺{item.details.standardDays - item.details.days}天)</span> : <span className="text-green-400 ml-1">(全勤)</span>}</span></div>
                     )}
-                    <div className="flex justify-between gap-4"><span className="text-gray-400">基本工资</span><span className="text-white font-mono">¥{Math.round(item.details.base).toLocaleString()}</span></div>
-                    {item.details.deduction > 0 && <div className="flex justify-between gap-4"><span className="text-red-400">请假扣除</span><span className="text-red-400 font-mono">-¥{Math.round(item.details.deduction).toLocaleString()}</span></div>}
+                    {/* Show Standard Base if deduction exists, otherwise just Basic */}
+                    <div className="flex justify-between gap-4">
+                        <span className="text-gray-400">{item.details.deduction > 0 ? '标准月薪' : '基本工资'}</span>
+                        <span className="text-white font-mono">¥{Math.round(item.details.base).toLocaleString()}</span>
+                    </div>
+                    {item.details.deduction > 0 && (
+                        <div className="flex justify-between gap-4">
+                            <span className="text-red-400">请假扣除</span>
+                            <span className="text-red-400 font-mono">-¥{Math.round(item.details.deduction).toLocaleString()}</span>
+                        </div>
+                    )}
                     <div className="flex justify-between gap-4"><span className="text-gray-400">绩效奖金</span><span className="text-green-400 font-mono">+¥{Math.round(item.details.bonus).toLocaleString()}</span></div>
                     {item.details.attendanceBonus > 0 && <div className="flex justify-between gap-4"><span className="text-yellow-400">全勤奖</span><span className="text-yellow-400 font-mono">+¥{Math.round(item.details.attendanceBonus).toLocaleString()}</span></div>}
                     <div className="border-t border-white/10 my-1 pt-1 flex justify-between gap-4"><span className="text-white font-bold">实际发放</span><span className="text-nexus-accent font-bold font-mono">¥{Math.round(item.details.real).toLocaleString()}</span></div>
