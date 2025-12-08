@@ -160,26 +160,24 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
             const standardSalary = rec.standardSalary || rec.basicSalary;
             
             // Deduction Logic:
-            // 1. Explicit
             let effectiveDeduction = rec.leaveDeduction || 0;
-            // 2. Fallback inference for old data: If Standard > Basic and not manual, assume diff is deduction
-            if (effectiveDeduction === 0 && rec.standardSalary && rec.basicSalary < rec.standardSalary && !rec.manualWorkDays) {
-                effectiveDeduction = rec.standardSalary - rec.basicSalary;
-            }
-
+            
+            // Use manual days if present, otherwise calculate proportional days
             let days = rec.manualWorkDays;
             if (!days && standardSalary > 0) {
-                days = Math.round(((standardSalary - effectiveDeduction) / standardSalary) * stdDays);
+                // If no manual override, days should be proportional to Basic Pay vs Standard Pay
+                // Example: Basic 3636 / Standard 5000 = 0.727. * 22 days = 16 days.
+                days = Math.round((rec.basicSalary / standardSalary) * stdDays);
             }
 
             details = {
-                // Pass Standard (Gross) Salary as Base so tooltip math works (Standard - Deduction = Net)
                 base: standardSalary,
                 deduction: effectiveDeduction,
                 bonus: rec.bonusAmount,
                 attendanceBonus: rec.attendanceBonus,
                 real: rec.totalSalary,
-                days: days || stdDays, // Fallback to full days if calc fails
+                realBasic: rec.basicSalary, // Pass real basic to detect implicit deductions
+                days: days || stdDays, 
                 standardDays: stdDays
             };
         }
@@ -429,14 +427,15 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
                                 // Explicitly use saved standard Salary (gross) or fallback to basic
                                 const stdSalary = sal.standardSalary || sal.basicSalary;
                                 
-                                // Explicit deduction, or fallback inference for old records if missing
+                                // Explicit deduction
                                 let deduction = sal.leaveDeduction || 0;
-                                if (deduction === 0 && sal.standardSalary && sal.basicSalary < sal.standardSalary && !sal.manualWorkDays) {
-                                    deduction = sal.standardSalary - sal.basicSalary;
-                                }
 
                                 // Work month string (previous month)
                                 const workMonthStr = getPreviousMonth(sal.month);
+
+                                // Check for implicit deduction (late joiner/unpaid days without leave record)
+                                const isLateJoinerGap = stdSalary > sal.basicSalary && deduction === 0;
+                                const lateJoinerDeduction = stdSalary - sal.basicSalary;
 
                                 return (
                                 <div key={sal.id} className="relative group">
@@ -465,7 +464,13 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
                                             </div>
                                             <div className="bg-white/5 p-4 rounded-lg border border-white/10">
                                                 <div className="text-nexus-muted text-xs uppercase mb-2">扣除项目 (Deductions)</div>
-                                                <div className="flex justify-between text-red-400"><span>请假扣款</span><span className="font-mono">-¥{Math.round(deduction).toLocaleString()}</span></div>
+                                                {deduction > 0 && (
+                                                    <div className="flex justify-between text-red-400"><span>请假扣款</span><span className="font-mono">-¥{Math.round(deduction).toLocaleString()}</span></div>
+                                                )}
+                                                {isLateJoinerGap && (
+                                                    <div className="flex justify-between text-orange-400"><span>缺勤/未入职扣除</span><span className="font-mono">-¥{Math.round(lateJoinerDeduction).toLocaleString()}</span></div>
+                                                )}
+                                                {deduction === 0 && !isLateJoinerGap && <div className="text-nexus-muted text-xs italic">无扣除项</div>}
                                             </div>
                                         </div>
                                         <div className="border-t-2 border-white/20 pt-6 flex justify-between items-center">
@@ -497,7 +502,6 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
                                         
                                         <div className="grid grid-cols-2 md:grid-cols-4 gap-y-4 gap-x-2 text-sm border-t border-white/5 pt-4">
                                             <div>
-                                                {/* CONDITIONAL DISPLAY: If there is a deduction, label this as Standard Salary. Otherwise Basic. */}
                                                 <div className="text-xs text-nexus-muted uppercase mb-1">标准薪资</div>
                                                 <div className="text-white font-mono">¥{Math.round(stdSalary).toLocaleString()}</div>
                                             </div>
@@ -509,13 +513,18 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
                                                 <div className="text-xs text-nexus-muted uppercase mb-1">全勤奖</div>
                                                 <div className="text-yellow-400 font-mono">¥{Math.round(sal.attendanceBonus || 0).toLocaleString()}</div>
                                             </div>
-                                            {/* CONDITIONAL DISPLAY: Only show if there IS a deduction */}
-                                            {deduction > 0 && (
-                                                <div>
-                                                    <div className="text-xs text-nexus-muted uppercase mb-1">请假扣除</div>
-                                                    <div className="text-red-400 font-mono">-¥{Math.round(deduction).toLocaleString()}</div>
-                                                </div>
-                                            )}
+                                            
+                                            {/* DEDUCTIONS COLUMN */}
+                                            <div>
+                                                <div className="text-xs text-nexus-muted uppercase mb-1">扣除项</div>
+                                                {deduction > 0 ? (
+                                                    <div className="text-red-400 font-mono" title="请假扣除">-¥{Math.round(deduction).toLocaleString()}</div>
+                                                ) : isLateJoinerGap ? (
+                                                    <div className="text-orange-400 font-mono" title="缺勤/未入职扣除">-¥{Math.round(lateJoinerDeduction).toLocaleString()}</div>
+                                                ) : (
+                                                    <div className="text-nexus-muted">-</div>
+                                                )}
+                                            </div>
                                         </div>
 
                                         <div className="mt-4 flex justify-end">
