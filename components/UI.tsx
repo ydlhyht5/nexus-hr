@@ -133,6 +133,112 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({ label, value, option
   );
 };
 
+// --- Custom Month Picker (Frosted Glass) ---
+interface CustomMonthPickerProps {
+  label?: string;
+  value: string; // "YYYY-MM"
+  onChange: (value: string) => void;
+  className?: string;
+}
+
+export const CustomMonthPicker: React.FC<CustomMonthPickerProps> = ({ label, value, onChange, className = '' }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  
+  // Parse initial value or default to today
+  const initialDate = value ? new Date(value + '-01') : new Date();
+  const [viewYear, setViewYear] = useState(initialDate.getFullYear());
+
+  useEffect(() => {
+    if (value) {
+        const d = new Date(value + '-01');
+        setViewYear(d.getFullYear());
+    }
+  }, [value]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleMonthClick = (monthIndex: number) => {
+    // monthIndex is 0-11
+    const monthStr = String(monthIndex + 1).padStart(2, '0');
+    onChange(`${viewYear}-${monthStr}`);
+    setIsOpen(false);
+  };
+
+  const changeYear = (offset: number) => {
+    setViewYear(prev => prev + offset);
+  };
+
+  return (
+    <div className={`flex flex-col gap-1.5 w-full ${className}`} ref={containerRef}>
+      {label && <label className="text-xs font-semibold text-nexus-muted uppercase tracking-wider pl-1">{label}</label>}
+      <div className="relative">
+        <div 
+          onClick={() => setIsOpen(!isOpen)}
+          className={`
+            bg-white/5 backdrop-blur-md border border-white/10 rounded-xl px-4 py-3 text-sm text-white cursor-pointer
+            flex justify-between items-center transition-all duration-300 group
+            hover:bg-white/10 hover:border-white/20 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)]
+            ${isOpen ? 'ring-1 ring-nexus-accent/50 border-nexus-accent/50 bg-white/10' : ''}
+          `}
+        >
+          <span className={value ? 'text-white font-mono' : 'text-gray-500'}>{value}</span>
+          <CalendarIcon size={16} className={`text-nexus-muted group-hover:text-white transition-colors duration-300 ${isOpen ? 'text-nexus-accent' : ''}`} />
+        </div>
+
+        {/* Month Picker Popup */}
+        <div className={`
+          absolute top-full left-0 mt-2 w-[280px] bg-[#0F111A]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.8)] z-50 p-4
+          transition-all duration-200 origin-top-left
+          ${isOpen ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 -translate-y-2 pointer-events-none'}
+        `}>
+          {/* Header */}
+          <div className="flex justify-between items-center mb-4 pb-2 border-b border-white/5">
+            <button onClick={(e) => {e.stopPropagation(); changeYear(-1)}} className="p-1 rounded-lg hover:bg-white/10 text-nexus-muted hover:text-white transition-colors"><ChevronLeft size={16}/></button>
+            <div className="text-sm font-bold text-white font-mono">
+              {viewYear}
+            </div>
+            <button onClick={(e) => {e.stopPropagation(); changeYear(1)}} className="p-1 rounded-lg hover:bg-white/10 text-nexus-muted hover:text-white transition-colors"><ChevronRight size={16}/></button>
+          </div>
+
+          {/* Months Grid */}
+          <div className="grid grid-cols-3 gap-2">
+            {Array.from({ length: 12 }).map((_, idx) => {
+              const currentMonthVal = `${viewYear}-${String(idx + 1).padStart(2, '0')}`;
+              const isSelected = value === currentMonthVal;
+              const monthName = new Date(viewYear, idx).toLocaleString('default', { month: 'short' });
+              
+              return (
+                <button
+                  key={idx}
+                  onClick={(e) => { e.stopPropagation(); handleMonthClick(idx); }}
+                  className={`
+                    py-2 rounded-lg text-xs font-medium transition-all duration-200
+                    ${isSelected 
+                      ? 'bg-nexus-accent text-white shadow-neon' 
+                      : 'text-white hover:bg-white/10 hover:text-white'
+                    }
+                  `}
+                >
+                  {monthName}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // --- Custom Date Picker (Frosted Glass) ---
 interface CustomDatePickerProps {
   label?: string;
@@ -434,7 +540,7 @@ export const Button: React.FC<ButtonProps> = ({
         <div className="flex items-center gap-2">
           <svg className="animate-spin h-4 w-4 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
           </svg>
           <span>Processing...</span>
         </div>
