@@ -19,7 +19,8 @@ interface AdminDashboardProps {
   onLogout: () => void;
 }
 
-// ... Helper Functions (kept same as before) ...
+// --- Helper Functions ---
+
 const getPreviousMonth = (monthStr: string): string => {
     const [year, month] = monthStr.split('-').map(Number);
     const date = new Date(year, month - 2, 1); 
@@ -140,7 +141,7 @@ const calculateLeaveDaysInMonth = (requests: LeaveRequest[], empId: string, mont
     return leaveWorkDays;
 };
 
-// ... SalaryRow Component (kept the same) ...
+// ... SalaryRow Component ...
 const SalaryRow: React.FC<{
   emp: Employee;
   payoutMonth: string;
@@ -248,10 +249,14 @@ const SalaryRow: React.FC<{
         {isNotJoined ? (
             <span className="text-xs text-nexus-muted">未入职</span>
         ) : (
-            <>
-                <Badge status={status} />
-                <div className="text-[10px] text-nexus-muted mt-1" title={`本月满勤: ${monthlyStandardDays}天`}>日薪 ¥{dailyRate.toFixed(0)}</div>
-            </>
+            <div className="flex flex-col gap-1">
+                {/* Fixed: Show Standard Salary explicitely */}
+                <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-white">¥{baseSalarySetting.toLocaleString()}</span>
+                    <Badge status={status} />
+                </div>
+                <div className="text-[10px] text-nexus-muted" title={`本月满勤: ${monthlyStandardDays}天`}>日薪 ¥{dailyRate.toFixed(0)}</div>
+            </div>
         )}
       </td>
       <td className="p-4">
@@ -309,7 +314,7 @@ const SalaryRow: React.FC<{
       </td>
       <td className="p-4">
         <div className="font-bold text-lg text-white font-mono">¥{Math.round(total).toLocaleString()}</div>
-        <div className="text-[10px] text-nexus-muted">基本工资: {Math.round(calculatedBaseSalary).toLocaleString()}</div>
+        {/* Sub-label removed as requested */}
       </td>
       <td className="p-4 text-right">
          <Button 
