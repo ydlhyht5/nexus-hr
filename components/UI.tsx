@@ -269,6 +269,7 @@ interface BarChartProps {
       deduction: number;
       bonus: number;
       real: number;
+      days?: number; // Added days
     }
   }[];
   height?: number;
@@ -295,6 +296,7 @@ export const BarChart: React.FC<BarChartProps> = ({
       {data.map((item, idx) => {
         const percent = (item.value / maxValue) * 100;
         const isHovered = hoverIdx === idx;
+        const displayValue = Math.round(item.value); // INTEGER ROUNDING
         
         return (
           <div 
@@ -311,39 +313,46 @@ export const BarChart: React.FC<BarChartProps> = ({
                
                {item.details ? (
                  <div className="space-y-1 text-xs">
+                    {/* Show Working Days if available */}
+                    {item.details.days !== undefined && (
+                        <div className="flex justify-between gap-4 mb-2 bg-white/5 p-1 rounded">
+                            <span className="text-gray-400">计薪天数</span>
+                            <span className="text-white font-mono font-bold">{item.details.days}天</span>
+                        </div>
+                    )}
                     <div className="flex justify-between gap-4">
                       <span className="text-gray-400">基本工资</span>
-                      <span className="text-white font-mono">¥{item.details.base.toLocaleString()}</span>
+                      <span className="text-white font-mono">¥{Math.round(item.details.base).toLocaleString()}</span>
                     </div>
                     {item.details.deduction > 0 && (
                       <div className="flex justify-between gap-4">
                         <span className="text-red-400">请假扣除</span>
-                        <span className="text-red-400 font-mono">-¥{item.details.deduction.toLocaleString()}</span>
+                        <span className="text-red-400 font-mono">-¥{Math.round(item.details.deduction).toLocaleString()}</span>
                       </div>
                     )}
                     <div className="flex justify-between gap-4">
                       <span className="text-gray-400">绩效奖金</span>
-                      <span className="text-green-400 font-mono">+¥{item.details.bonus.toLocaleString()}</span>
+                      <span className="text-green-400 font-mono">+¥{Math.round(item.details.bonus).toLocaleString()}</span>
                     </div>
                     <div className="border-t border-white/10 my-1 pt-1 flex justify-between gap-4">
                       <span className="text-white font-bold">实际发放</span>
-                      <span className="text-nexus-accent font-bold font-mono">¥{item.details.real.toLocaleString()}</span>
+                      <span className="text-nexus-accent font-bold font-mono">¥{Math.round(item.details.real).toLocaleString()}</span>
                     </div>
                  </div>
                ) : (
-                 <div className="text-lg font-bold text-white font-mono leading-none">¥{item.value.toLocaleString()}</div>
+                 <div className="text-lg font-bold text-white font-mono leading-none">¥{displayValue.toLocaleString()}</div>
                )}
                
                {/* Tooltip Arrow */}
                <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-[#0F111A]"></div>
             </div>
 
-            {/* Value Label Above Bar */}
+            {/* Value Label Above Bar (Rounded) */}
             <div 
               className={`absolute bottom-[calc(100%+4px)] text-[10px] font-mono transition-all duration-300 ${isHovered ? 'opacity-100 -translate-y-1 text-white font-bold' : 'opacity-70 text-nexus-muted'}`}
               style={{ bottom: mounted ? `${percent}%` : '0%' }}
             >
-              {item.value > 0 ? `¥${(item.value).toLocaleString()}` : ''}
+              {item.value > 0 ? `¥${displayValue.toLocaleString()}` : ''}
             </div>
 
             {/* Bar Container for Alignment */}
