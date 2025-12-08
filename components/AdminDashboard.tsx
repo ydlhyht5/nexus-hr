@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Employee, Gender, LeaveRequest, LeaveStatus, SalaryRecord } from '../types';
-import { Card, NeonCard, Button, Input, CustomSelect, CustomDatePicker, CustomMonthPicker, Badge, Modal, ToastContainer, ToastType, BarChart, Avatar } from './UI';
+import { Card, NeonCard, Button, Input, CustomSelect, CustomDatePicker, CustomMonthPicker, Badge, Modal, ToastContainer, ToastType, BarChart, Avatar, Pagination } from './UI';
 import { generatePinyinInitials } from '../services/geminiService';
 import { UserPlus, Calendar, Check, X, Pencil, Calculator, Save, User, KeyRound, Briefcase, DollarSign, Clock, Trash2, LockKeyhole, AlertTriangle, BarChart3, TrendingUp, Search, ChevronRight } from 'lucide-react';
 
@@ -47,27 +47,15 @@ const getSalaryStatus = (emp: Employee, workMonthStr: string): 'NOT_JOINED' | 'P
   return workYearMonth < probationTime ? 'PROBATION' : 'OFFICIAL';
 };
 
-/**
- * Big/Small Week Logic
- * 1. Mon-Fri: Work
- * 2. Sun: Rest
- * 3. Sat: Alternating. 
- *    - 1st Sat (Index 0): Rest
- *    - 2nd Sat (Index 1): Work
- *    - 3rd Sat (Index 2): Rest
- *    - 4th Sat (Index 3): Work
- */
 const isWorkDay = (date: Date): boolean => {
     const day = date.getDay();
-    if (day === 0) return false; // Sunday is always off
-    if (day >= 1 && day <= 5) return true; // Mon-Fri is work
+    if (day === 0) return false; 
+    if (day >= 1 && day <= 5) return true; 
 
-    // Saturday Logic
     const year = date.getFullYear();
     const month = date.getMonth();
     const dayOfMonth = date.getDate();
 
-    // Find index of this Saturday among all Saturdays in the month
     let saturdayIndex = -1;
     let count = 0;
     const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -82,10 +70,6 @@ const isWorkDay = (date: Date): boolean => {
             count++;
         }
     }
-
-    // Odd index saturdays (1, 3, 5...) are Work days in this logic (Index starts at 0)
-    // Index 0 (1st Sat) -> Rest (False)
-    // Index 1 (2nd Sat) -> Work (True)
     return saturdayIndex !== -1 && saturdayIndex % 2 !== 0;
 };
 
@@ -157,7 +141,7 @@ const calculateLeaveDaysInMonth = (requests: LeaveRequest[], empId: string, mont
     return leaveWorkDays;
 };
 
-// --- Salary Row Component ---
+// ... SalaryRow Component (kept the same) ...
 const SalaryRow: React.FC<{
   emp: Employee;
   payoutMonth: string;
@@ -181,8 +165,6 @@ const SalaryRow: React.FC<{
   const [sales, setSales] = useState(isNotJoined ? '0' : (existingRecord?.salesAmount?.toString() || ''));
   const [rate, setRate] = useState(isNotJoined ? '0' : (existingRecord?.bonusRate?.toString() || ''));
   const [manualDays, setManualDays] = useState(isNotJoined ? '0' : (existingRecord?.manualWorkDays?.toString() || '0'));
-  
-  // NEW: Attendance Bonus State
   const [attBonus, setAttBonus] = useState(isNotJoined ? '0' : (existingRecord?.attendanceBonus?.toString() || '0'));
 
   useEffect(() => {
@@ -203,7 +185,7 @@ const SalaryRow: React.FC<{
   const salesNum = parseFloat(sales) || 0;
   const rateNum = parseFloat(rate) || 0;
   const manualDaysNum = parseFloat(manualDays) || 0;
-  const attBonusNum = parseFloat(attBonus) || 0; // Integer
+  const attBonusNum = parseFloat(attBonus) || 0; 
   
   const finalDays = manualDaysNum > 0 ? manualDaysNum : systemNetWorkDays;
   const dailyRate = monthlyStandardDays > 0 ? (baseSalarySetting / monthlyStandardDays) : 0;
@@ -234,7 +216,7 @@ const SalaryRow: React.FC<{
       salesAmount: salesNum,
       bonusRate: rateNum,
       bonusAmount: Math.round(bonus),
-      attendanceBonus: Math.round(attBonusNum), // Save Attendance Bonus
+      attendanceBonus: Math.round(attBonusNum), 
       totalSalary: Math.round(total),
       updatedAt: Date.now()
     };
@@ -287,7 +269,6 @@ const SalaryRow: React.FC<{
              <span className="text-[10px] text-nexus-muted pr-1">天</span>
          </div>
       </td>
-      {/* Attendance Bonus Column */}
       <td className="p-4">
          <div className={`flex items-center gap-1 bg-black/20 rounded-lg p-1 border border-white/5 w-20 ${isNotJoined ? 'pointer-events-none opacity-50' : ''}`}>
              <span className="text-nexus-muted text-xs pl-1">¥</span>
@@ -369,12 +350,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
   const removeToast = (id: string) => setToasts(prev => prev.filter(t => t.id !== id));
 
-  // Polling notification logic
   const prevPendingRef = useRef(0);
   const activeLeaveRequests = leaveRequests.filter(req => 
       employees.some(e => e.id === req.employeeId)
   );
   
+  // -- Leave Filter & Pagination State --
+  const [leaveFilterMonth, setLeaveFilterMonth] = useState(() => {
+      const now = new Date();
+      return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  });
+  const [leavePage, setLeavePage] = useState(1);
+  const ITEMS_PER_PAGE = 5;
+
   useEffect(() => {
       const currentPending = activeLeaveRequests.filter(r => r.status === LeaveStatus.PENDING).length;
       if (currentPending > prevPendingRef.current) {
@@ -383,6 +371,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       prevPendingRef.current = currentPending;
   }, [leaveRequests, employees]); 
 
+  // Reset pagination when filter changes
+  useEffect(() => {
+      setLeavePage(1);
+  }, [leaveFilterMonth]);
+
+  // Leave Filtering & Sorting Logic
+  const filteredLeaves = activeLeaveRequests.filter(req => {
+      return req.startDate.startsWith(leaveFilterMonth);
+  });
+  // Sort by Start Date (Newest first)
+  const sortedLeaves = filteredLeaves.sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime());
+  
+  const totalLeavePages = Math.ceil(sortedLeaves.length / ITEMS_PER_PAGE);
+  const paginatedLeaves = sortedLeaves.slice((leavePage - 1) * ITEMS_PER_PAGE, leavePage * ITEMS_PER_PAGE);
+
+  // ... (Other state vars) ...
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
@@ -589,7 +593,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               value = rec.totalSalary;
               const systemNetWorkDays = rec.manualWorkDays && rec.manualWorkDays > 0 ? rec.manualWorkDays : undefined;
               
-              // Calculate standard days for that specific WORK MONTH for display
               const stdDays = getMonthlyStandardDays(displayLabel);
 
               details = {
@@ -628,6 +631,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       <ToastContainer toasts={toasts} removeToast={removeToast} />
       
       <div className="max-w-6xl mx-auto">
+        {/* Header */}
         <header className="flex flex-col md:flex-row justify-between items-center mb-10 gap-6 border-b border-white/5 pb-6">
           <div className="text-center md:text-left">
             <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-nexus-muted tracking-tight">
@@ -642,6 +646,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         </header>
 
+        {/* Navigation Tabs */}
         <div className="flex justify-center mb-10">
             <div className="bg-white/5 rounded-2xl p-1.5 flex gap-2 border border-white/5 backdrop-blur-md">
                 {[
@@ -668,23 +673,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
         </div>
 
+        {/* Content Area */}
         <div className="min-h-[600px]">
-            {/* EMPLOYEES TAB */}
             {activeTab === 'employees' && (
               <div className="space-y-6">
+                  {/* ... Employee Grid (kept same) ... */}
                   <div className="flex justify-between items-center px-2">
                       <h2 className="text-white font-bold text-lg">全员名单 <span className="text-nexus-muted font-normal text-sm ml-2">({employees.length}人)</span></h2>
                       <Button onClick={() => handleOpenModal()} icon={<UserPlus size={16} />} size="sm">
                         录入新员工
                       </Button>
                   </div>
-                  
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                       {employees.map(emp => {
                           const probationEnd = new Date(emp.joinDate);
                           probationEnd.setMonth(probationEnd.getMonth() + emp.probationMonths);
                           const isProbation = new Date() < probationEnd;
-
                           return (
                               <NeonCard key={emp.id} onClick={() => handleOpenModal(emp)}>
                                   <div className="flex justify-between items-start mb-6">
@@ -735,17 +739,30 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
             )}
 
-            {/* LEAVES TAB */}
+            {/* LEAVES TAB (UPDATED) */}
             {activeTab === 'leaves' && (
-              <div className="max-w-4xl mx-auto">
-                 {activeLeaveRequests.length === 0 ? (
-                   <Card className="text-center py-20 text-nexus-muted border-dashed border-2 border-white/5 bg-transparent">
+              <div className="max-w-4xl mx-auto space-y-6">
+                 {/* Filter Header */}
+                 <div className="flex justify-between items-center bg-white/5 p-4 rounded-2xl border border-white/5 backdrop-blur-md">
+                    <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                        <Calendar size={20} className="text-nexus-accent"/> 请假审批列表
+                    </h2>
+                    <div className="flex items-center gap-3">
+                        <span className="text-xs text-nexus-muted uppercase tracking-wider">筛选月份:</span>
+                        <div className="w-40">
+                            <CustomMonthPicker value={leaveFilterMonth} onChange={setLeaveFilterMonth} />
+                        </div>
+                    </div>
+                 </div>
+
+                 {paginatedLeaves.length === 0 ? (
+                   <Card className="text-center py-20 text-nexus-muted border-dashed border-2 border-white/5 bg-transparent animate-in fade-in">
                       <Calendar size={48} className="mx-auto mb-4 opacity-20"/>
-                      <p>暂无待处理的请假申请。</p>
+                      <p>{leaveFilterMonth} 无相关请假记录。</p>
                    </Card>
                  ) : (
-                   <div className="space-y-4">
-                   {activeLeaveRequests.map(req => (
+                   <div className="space-y-4 animate-in slide-in-from-bottom-4 duration-500">
+                   {paginatedLeaves.map(req => (
                      <Card key={req.id} className="relative overflow-hidden group hover:border-nexus-accent/30 transition-colors">
                        {req.status === LeaveStatus.PENDING && (
                          <div className="absolute left-0 top-0 bottom-0 w-1 bg-yellow-500"></div>
@@ -798,12 +815,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                    ))}
                    </div>
                  )}
+                 
+                 {/* Pagination Controls */}
+                 <Pagination 
+                    currentPage={leavePage} 
+                    totalPages={totalLeavePages} 
+                    onPageChange={setLeavePage} 
+                 />
               </div>
             )}
 
             {/* SALARY TAB */}
             {activeTab === 'salary' && (
               <div>
+                  {/* ... (Kept same) ... */}
                   <Card className="min-h-[500px] border-none bg-transparent shadow-none p-0">
                     <div className="bg-nexus-card border border-white/5 rounded-2xl p-6 mb-6 flex flex-col md:flex-row items-center justify-between gap-6">
                        <div className="flex items-center gap-4">
@@ -818,7 +843,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           </div>
                        </div>
                        
-                       {/* UPDATED: Custom Month Picker */}
                        <div className="flex items-center gap-4">
                           <CustomMonthPicker
                             value={selectedMonth} 
@@ -867,9 +891,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
             )}
 
-            {/* REPORTS TAB */}
+            {/* REPORTS TAB (Kept same) */}
             {activeTab === 'reports' && (
               <div className="space-y-6">
+                 {/* ... (Kept same) ... */}
                  <Card className="bg-[#0B0C15]/50">
                     <div className="flex justify-between items-center mb-6">
                         <div className="flex items-center gap-3">
@@ -997,7 +1022,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
          </div>
       </Modal>
 
-      {/* ... Other Modals (Reset Password, Delete Confirmation) ... */}
+      {/* ... Other Modals ... */}
       <Modal isOpen={isResetModalOpen} onClose={() => setIsResetModalOpen(false)} title="重置员工密码" footer={
              <div className="flex gap-4">
                  <Button variant="ghost" onClick={() => setIsResetModalOpen(false)} className="flex-1">取消</Button>
