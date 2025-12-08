@@ -15,7 +15,6 @@ export enum LeaveStatus {
   REJECTED = 'REJECTED'
 }
 
-// Base interface for syncable items
 export interface Syncable {
   synced?: boolean; // false = pending upload, true/undefined = synced
 }
