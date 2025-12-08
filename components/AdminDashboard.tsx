@@ -47,6 +47,96 @@ const getSalaryStatus = (emp: Employee, workMonthStr: string): 'NOT_JOINED' | 'P
   return workYearMonth < probationTime ? 'PROBATION' : 'OFFICIAL';
 };
 
+/**
+ * Check if a date is a working day based on Big/Small week rule.
+ * Mon-Fri: Work
+ * Sun: Rest
+ * Sat: Alternates (1st-Rest, 2nd-Work, 3rd-Rest, 4th-Work...)
+ */
+const isWorkDay = (date: Date): boolean => {
+    const day = date.getDay();
+    if (day === 0) return false; // Sunday is always off
+    if (day >= 1 && day <= 5) return true; // Mon-Fri is work
+
+    // It is Saturday (day === 6)
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const dayOfMonth = date.getDate();
+
+    // Find index of this Saturday among all Saturdays in the month
+    let saturdayIndex = -1;
+    let count = 0;
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    
+    for (let d = 1; d <= daysInMonth; d++) {
+        const tempDate = new Date(year, month, d);
+        if (tempDate.getDay() === 6) {
+            if (d === dayOfMonth) {
+                saturdayIndex = count;
+                break;
+            }
+            count++;
+        }
+    }
+
+    // Index 0 (1st Sat) -> Double Break (Rest) -> False
+    // Index 1 (2nd Sat) -> Single Break (Work) -> True
+    // Index 2 (3rd Sat) -> Double Break (Rest) -> False
+    // Index 3 (4th Sat) -> Single Break (Work) -> True
+    return saturdayIndex !== -1 && saturdayIndex % 2 !== 0;
+};
+
+/**
+ * Calculate total standard working days in a month (Denominator for Daily Rate)
+ */
+const getMonthlyStandardDays = (monthStr: string): number => {
+    const [year, month] = monthStr.split('-').map(Number);
+    const daysInMonth = new Date(year, month, 0).getDate();
+    let workDays = 0;
+    for (let d = 1; d <= daysInMonth; d++) {
+        if (isWorkDay(new Date(year, month - 1, d))) {
+            workDays++;
+        }
+    }
+    return workDays;
+};
+
+/**
+ * Calculate actual payable working days for an employee (Integers only)
+ * Accounts for Join Date.
+ */
+const calculateActualWorkDays = (emp: Employee, monthStr: string): number => {
+    const [year, month] = monthStr.split('-').map(Number);
+    const monthStart = new Date(year, month - 1, 1);
+    const monthEnd = new Date(year, month, 0);
+    const joinDate = new Date(emp.joinDate);
+
+    // Normalize join date to start of day
+    joinDate.setHours(0,0,0,0);
+    monthStart.setHours(0,0,0,0);
+    monthEnd.setHours(0,0,0,0);
+
+    if (joinDate > monthEnd) return 0;
+
+    // Start counting from whichever is later: Month Start or Join Date
+    const startDate = joinDate > monthStart ? joinDate : monthStart;
+    
+    let workDays = 0;
+    const current = new Date(startDate);
+    
+    // Iterate day by day
+    while (current <= monthEnd) {
+        if (isWorkDay(current)) {
+            workDays++;
+        }
+        current.setDate(current.getDate() + 1);
+    }
+    return workDays;
+};
+
+/**
+ * Calculate leave deductions (Only counts working days)
+ */
 const calculateLeaveDaysInMonth = (requests: LeaveRequest[], empId: string, monthStr: string): number => {
     const [year, month] = monthStr.split('-').map(Number);
     const monthStart = new Date(year, month - 1, 1);
@@ -57,43 +147,25 @@ const calculateLeaveDaysInMonth = (requests: LeaveRequest[], empId: string, mont
         r.status === LeaveStatus.APPROVED
     );
 
-    let totalDays = 0;
+    let leaveWorkDays = 0;
 
     approved.forEach(req => {
-        const start = new Date(req.startDate);
+        let current = new Date(req.startDate);
         const end = new Date(req.endDate);
 
-        if (start > monthEnd || end < monthStart) return;
-
-        const effectiveStart = start < monthStart ? monthStart : start;
+        // Clamp to current month
+        if (current < monthStart) current = new Date(monthStart);
         const effectiveEnd = end > monthEnd ? monthEnd : end;
 
-        const diffTime = Math.abs(effectiveEnd.getTime() - effectiveStart.getTime());
-        const days = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-        totalDays += days;
+        while (current <= effectiveEnd) {
+            if (isWorkDay(current)) {
+                leaveWorkDays++;
+            }
+            current.setDate(current.getDate() + 1);
+        }
     });
 
-    return totalDays;
-};
-
-const calculatePayableWorkDays = (emp: Employee, monthStr: string): number => {
-    const STANDARD_WORK_DAYS = 24;
-    const [year, month] = monthStr.split('-').map(Number);
-    const daysInMonth = new Date(year, month, 0).getDate();
-    
-    const joinDate = new Date(emp.joinDate);
-    const workDate = new Date(monthStr + '-01');
-
-    if (joinDate > new Date(year, month, 0)) return 0;
-    
-    if (joinDate < new Date(year, month - 1, 1)) {
-        return STANDARD_WORK_DAYS;
-    }
-
-    const joinDay = joinDate.getDate();
-    const activeCalendarDays = daysInMonth - joinDay + 1;
-    const proRatedDays = (activeCalendarDays / daysInMonth) * STANDARD_WORK_DAYS;
-    return parseFloat(proRatedDays.toFixed(1));
+    return leaveWorkDays;
 };
 
 // --- Salary Row Component ---
@@ -111,11 +183,20 @@ const SalaryRow: React.FC<{
   const status = getSalaryStatus(emp, workMonth);
   const isNotJoined = status === 'NOT_JOINED';
   
-  // 1. Base Logic
-  const baseRate = status === 'PROBATION' ? emp.probationSalary : emp.fullSalary;
-  const standardPayableDays = isNotJoined ? 0 : calculatePayableWorkDays(emp, workMonth);
+  // 1. Base Calculations
+  const baseSalarySetting = status === 'PROBATION' ? emp.probationSalary : emp.fullSalary;
+  
+  // A. Total standard working days in this month (e.g., 25 days)
+  const monthlyStandardDays = getMonthlyStandardDays(workMonth);
+  
+  // B. Employee's potential working days based on join date (Integer)
+  const potentialWorkDays = isNotJoined ? 0 : calculateActualWorkDays(emp, workMonth);
+  
+  // C. Leave days that fall on working days (Integer)
   const leaveDays = isNotJoined ? 0 : calculateLeaveDaysInMonth(leaveRequests, emp.id, workMonth);
-  const systemCalculatedDays = Math.max(0, standardPayableDays - leaveDays);
+  
+  // D. Net Actual Working Days (Integer)
+  const systemNetWorkDays = Math.max(0, potentialWorkDays - leaveDays);
 
   // 2. State
   const [sales, setSales] = useState(isNotJoined ? '0' : (existingRecord?.salesAmount?.toString() || ''));
@@ -136,19 +217,22 @@ const SalaryRow: React.FC<{
      }
   }, [payoutMonth, salaryRecords, emp.id, isNotJoined]);
 
-  // 3. Final Calculation
+  // 3. Final Calculation Logic
   const salesNum = parseFloat(sales) || 0;
   const rateNum = parseFloat(rate) || 0;
   const manualDaysNum = parseFloat(manualDays) || 0;
   
-  // Logic: If manualDays > 0, use it. Else use systemCalculatedDays.
-  const finalPayableDays = manualDaysNum > 0 ? manualDaysNum : systemCalculatedDays;
+  // Which days to use for calc? Manual Override > System Calc
+  const finalDays = manualDaysNum > 0 ? manualDaysNum : systemNetWorkDays;
   
-  const dailyRate = baseRate / 24;
-  const calculatedBaseSalary = isNotJoined ? 0 : (dailyRate * finalPayableDays);
+  // Daily Rate = Base / Standard Days (Avoid division by zero)
+  const dailyRate = monthlyStandardDays > 0 ? (baseSalarySetting / monthlyStandardDays) : 0;
+  
+  // Calculated Base = Daily Rate * Final Worked Days
+  const calculatedBaseSalary = isNotJoined ? 0 : (dailyRate * finalDays);
   
   // Reporting fields
-  const standardSalaryForMonth = isNotJoined ? 0 : (dailyRate * standardPayableDays);
+  const standardSalaryForMonth = isNotJoined ? 0 : baseSalarySetting; 
   const leaveDeductionAmount = isNotJoined ? 0 : (dailyRate * leaveDays);
 
   const bonus = salesNum * (rateNum / 100);
@@ -168,8 +252,8 @@ const SalaryRow: React.FC<{
       month: payoutMonth,
       basicSalary: calculatedBaseSalary, 
       manualWorkDays: manualDaysNum, // Save the override
-      standardSalary: standardSalaryForMonth, // Theoretical full base
-      leaveDeduction: manualDaysNum > 0 ? 0 : leaveDeductionAmount, // Only count specific leave deduction if using system calc
+      standardSalary: standardSalaryForMonth, 
+      leaveDeduction: manualDaysNum > 0 ? 0 : leaveDeductionAmount, 
       salesAmount: salesNum,
       bonusRate: rateNum,
       bonusAmount: bonus,
@@ -194,8 +278,8 @@ const SalaryRow: React.FC<{
                 <div>{emp.name}</div>
                 {!isNotJoined && (
                     <div className="text-[10px] text-nexus-muted flex flex-col">
-                        <span>系统算: {systemCalculatedDays}天</span>
-                        <span className="opacity-70">(应勤{standardPayableDays} - 请假{leaveDays})</span>
+                        <span>系统算: {systemNetWorkDays}天</span>
+                        <span className="opacity-70">(应勤{potentialWorkDays} - 请假{leaveDays})</span>
                     </div>
                 )}
             </div>
@@ -207,7 +291,7 @@ const SalaryRow: React.FC<{
         ) : (
             <>
                 <Badge status={status} />
-                <div className="text-[10px] text-nexus-muted mt-1">日薪 ¥{dailyRate.toFixed(0)}</div>
+                <div className="text-[10px] text-nexus-muted mt-1" title={`本月满勤: ${monthlyStandardDays}天`}>日薪 ¥{dailyRate.toFixed(0)}</div>
             </>
         )}
       </td>
