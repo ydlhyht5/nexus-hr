@@ -144,10 +144,12 @@ const App: React.FC = () => {
 
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (newPassword.length < 4) {
-      setError('密码长度太短');
+    if (!newPassword) {
+      setError('密码不能为空');
       return;
     }
+    // No length check required anymore
+    
     const targetEmp = employees.find(e => e.id === loginId);
     if (targetEmp) {
       const updatedEmp = { ...targetEmp, password: newPassword, isFirstLogin: false };
