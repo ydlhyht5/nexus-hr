@@ -250,7 +250,6 @@ const SalaryRow: React.FC<{
             <span className="text-xs text-nexus-muted">未入职</span>
         ) : (
             <div className="flex flex-col gap-1">
-                {/* Fixed: Show Standard Salary explicitely */}
                 <div className="flex items-center gap-2">
                     <span className="text-sm font-bold text-white">¥{baseSalarySetting.toLocaleString()}</span>
                     <Badge status={status} />
@@ -314,7 +313,6 @@ const SalaryRow: React.FC<{
       </td>
       <td className="p-4">
         <div className="font-bold text-lg text-white font-mono">¥{Math.round(total).toLocaleString()}</div>
-        {/* Sub-label removed as requested */}
       </td>
       <td className="p-4 text-right">
          <Button 
@@ -451,7 +449,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setGeneratedId(`${initials}${dateSuffix}`);
   };
 
-  // FIX: Removed newEmp.name from dependency to prevent re-render during typing
   useEffect(() => {
       if (isModalOpen && !editingId) {
           triggerIdGeneration();
@@ -678,8 +675,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
         </div>
 
-        {/* Content Area */}
-        <div className="min-h-[600px]">
+        {/* Content Area - NO FIXED HEIGHTS */}
+        <div className="w-full">
             {activeTab === 'employees' && (
               <div className="space-y-6">
                   {/* ... Employee Grid (kept same) ... */}
@@ -833,7 +830,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             {/* SALARY TAB */}
             {activeTab === 'salary' && (
               <div>
-                  <Card className="min-h-[500px] border-none bg-transparent shadow-none p-0">
+                  {/* Removed min-h from Salary Card */}
+                  <Card className="border-none bg-transparent shadow-none p-0">
                     {/* Added relative z-20 to header */}
                     <div className="bg-nexus-card border border-white/5 rounded-2xl p-6 mb-6 flex flex-col md:flex-row items-center justify-between gap-6 relative z-20">
                        <div className="flex items-center gap-4">
@@ -972,7 +970,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                              <BarChart data={getChartData(employeePeriod, reportEmployeeId)} height={200} colorStart="from-purple-600" colorEnd="to-indigo-600" />
                         </div>
                     ) : (
-                        <div className="h-[200px] flex flex-col items-center justify-center text-nexus-muted border-2 border-dashed border-white/5 rounded-2xl bg-white/5">
+                        // Removed min-h from empty state as well
+                        <div className="flex flex-col items-center justify-center text-nexus-muted border-2 border-dashed border-white/5 rounded-2xl bg-white/5 p-12">
                             <User size={32} className="opacity-20 mb-2" />
                             <p className="text-xs">请点击上方头像选择员工查看详情</p>
                         </div>
