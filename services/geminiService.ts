@@ -1,6 +1,25 @@
 import { GoogleGenAI } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Safe access to API Key that works in Vite/Browser environment
+const getApiKey = (): string => {
+  try {
+    // @ts-ignore
+    return (import.meta && import.meta.env && import.meta.env.API_KEY) || '';
+  } catch (e) {
+    return '';
+  }
+};
+
+const apiKey = getApiKey();
+let ai: GoogleGenAI | null = null;
+
+if (apiKey) {
+  try {
+    ai = new GoogleGenAI({ apiKey });
+  } catch (e) {
+    console.warn("Failed to initialize GoogleGenAI", e);
+  }
+}
 
 /**
  * Generates Pinyin initials from a Chinese name using Gemini.
@@ -8,6 +27,11 @@ const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
  */
 export const generatePinyinInitials = async (chineseName: string): Promise<string> => {
   if (!chineseName) return '';
+  
+  // Fallback immediately if no key or no AI instance to prevent crash
+  if (!ai) {
+     return chineseName.substring(0, 2).toLowerCase();
+  }
   
   try {
     const response = await ai.models.generateContent({
@@ -24,7 +48,7 @@ export const generatePinyinInitials = async (chineseName: string): Promise<strin
     return cleanText || chineseName.substring(0, 2).toLowerCase();
   } catch (error) {
     console.warn("Gemini API Error (Pinyin):", error);
-    // Fallback: simple slice (not pinyin, but prevents crash)
+    // Fallback: simple slice
     return chineseName.substring(0, 2).toLowerCase();
   }
 };
