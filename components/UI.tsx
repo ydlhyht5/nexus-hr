@@ -238,7 +238,60 @@ export const BarChart: React.FC<{ data: any[]; height?: number; colorStart?: str
   );
 };
 
-// ... Buttons, Inputs etc ...
+// --- Line Chart ---
+export const LineChart: React.FC<{ data: { label: string; value: number }[]; height?: number }> = ({ data, height = 250 }) => {
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+  if (!data || data.length === 0) return <div className="h-[250px] flex items-center justify-center text-nexus-muted">暂无数据</div>;
+  const maxValue = Math.max(...data.map(d => d.value)) * 1.1 || 1000;
+  const points = data.map((d, i) => {
+    const x = (i / (data.length - 1)) * 100;
+    const y = 100 - (d.value / maxValue) * 100;
+    return { x, y, ...d };
+  });
+  const pathD = `M ${points.map(p => `${p.x},${p.y}`).join(' L ')}`;
+  const areaD = `${pathD} L 100,100 L 0,100 Z`;
+
+  return (
+    <div className="relative w-full" style={{ height: `${height}px` }} onMouseLeave={() => setHoverIdx(null)}>
+      <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full overflow-visible">
+        <defs>
+          <linearGradient id="lineGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#6366f1" stopOpacity="0.5" />
+            <stop offset="100%" stopColor="#6366f1" stopOpacity="0" />
+          </linearGradient>
+          <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+            <feGaussianBlur stdDeviation="2" result="coloredBlur" />
+            <feMerge>
+              <feMergeNode in="coloredBlur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
+        <path d={areaD} fill="url(#lineGradient)" className="opacity-50 animate-[grow_1s_ease-out]" />
+        <path d={pathD} fill="none" stroke="#818cf8" strokeWidth="0.8" filter="url(#glow)" className="animate-[draw_2s_ease-out]" strokeLinecap="round" strokeLinejoin="round" />
+        {points.map((p, i) => (
+          <g key={i} onMouseEnter={() => setHoverIdx(i)}>
+            <circle cx={p.x} cy={p.y} r={hoverIdx === i ? "2" : "1"} fill="#fff" className="transition-all duration-300" />
+            <circle cx={p.x} cy={p.y} r={hoverIdx === i ? "4" : "0"} fill="rgba(99,102,241,0.3)" className="animate-pulse" />
+          </g>
+        ))}
+      </svg>
+      {hoverIdx !== null && (
+        <div className="absolute bg-[#0F111A] border border-white/10 rounded-xl px-3 py-2 text-xs shadow-neon pointer-events-none transform -translate-x-1/2 -translate-y-full transition-all" style={{ left: `${points[hoverIdx].x}%`, top: `${points[hoverIdx].y}%`, marginTop: '-12px' }}>
+          <div className="text-nexus-muted mb-1">{points[hoverIdx].label}</div>
+          <div className="text-white font-mono font-bold">¥{Math.round(points[hoverIdx].value).toLocaleString()}</div>
+        </div>
+      )}
+      <div className="absolute bottom-0 w-full flex justify-between text-[10px] text-nexus-muted translate-y-full pt-2">
+        {data.map((d, i) => (
+          <span key={i} className={i === 0 || i === data.length-1 || i % 2 === 0 ? 'opacity-100' : 'opacity-0 md:opacity-50'}>{d.label.split('-')[1] || d.label}月</span>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// ... (Button, Input, Badge, Modal, Toast, ToastContainer)
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'danger' | 'ghost' | 'success';
   size?: 'sm' | 'md' | 'lg';
