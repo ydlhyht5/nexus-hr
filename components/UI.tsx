@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState, useRef } from 'react';
 import { X, CheckCircle, AlertCircle, Info, Calendar as CalendarIcon, ChevronLeft, ChevronRight, ChevronDown, Check } from 'lucide-react';
 
@@ -210,18 +211,19 @@ export const BarChart: React.FC<{ data: any[]; height?: number; colorStart?: str
         const barHeight = Math.max(percent, 2);
         return (
           <div key={idx} className="relative flex-1 flex flex-col justify-end items-center group h-full" onMouseEnter={() => setHoverIdx(idx)} onMouseLeave={() => setHoverIdx(null)}>
-            <div className={`absolute bottom-full mb-3 bg-[#0F111A] border border-white/10 px-4 py-3 rounded-xl shadow-[0_0_30px_rgba(0,0,0,0.5)] z-20 pointer-events-none transition-all duration-200 whitespace-nowrap min-w-[160px] ${isHovered ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-2 scale-95'}`}>
+            <div className={`absolute bottom-full mb-3 bg-[#0F111A] border border-white/10 px-4 py-3 rounded-xl shadow-[0_0_30px_rgba(0,0,0,0.5)] z-20 pointer-events-none transition-all duration-200 whitespace-nowrap min-w-[180px] ${isHovered ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-2 scale-95'}`}>
                <div className="text-xs text-nexus-muted mb-2 border-b border-white/5 pb-1">{item.label} 薪资详情</div>
                {item.details ? (
                  <div className="space-y-1 text-xs">
                     {item.details.days !== undefined && item.details.standardDays !== undefined && (
                         <div className="flex justify-between gap-4 mb-2 bg-white/5 p-1.5 rounded"><span className="text-gray-400">出勤</span><span className="text-white font-mono font-bold">{item.details.days}天 {item.details.days < item.details.standardDays ? <span className="text-red-400 ml-1">(缺{item.details.standardDays - item.details.days}天)</span> : <span className="text-green-400 ml-1">(全勤)</span>}</span></div>
                     )}
-                    {/* Show Standard Base if deduction exists, otherwise just Basic */}
+                    {/* Explicitly show Standard Salary */}
                     <div className="flex justify-between gap-4">
-                        <span className="text-gray-400">{item.details.deduction > 0 ? '标准月薪' : '基本工资'}</span>
+                        <span className="text-gray-400">标准薪资</span>
                         <span className="text-white font-mono">¥{Math.round(item.details.base).toLocaleString()}</span>
                     </div>
+                    {/* Show Deduction logic: Either explict deduction > 0 OR if implicit gap exists */}
                     {item.details.deduction > 0 && (
                         <div className="flex justify-between gap-4">
                             <span className="text-red-400">请假扣除</span>
@@ -230,6 +232,8 @@ export const BarChart: React.FC<{ data: any[]; height?: number; colorStart?: str
                     )}
                     <div className="flex justify-between gap-4"><span className="text-gray-400">绩效奖金</span><span className="text-green-400 font-mono">+¥{Math.round(item.details.bonus).toLocaleString()}</span></div>
                     {item.details.attendanceBonus > 0 && <div className="flex justify-between gap-4"><span className="text-yellow-400">全勤奖</span><span className="text-yellow-400 font-mono">+¥{Math.round(item.details.attendanceBonus).toLocaleString()}</span></div>}
+                    
+                    {/* Calculate Net Pay */}
                     <div className="border-t border-white/10 my-1 pt-1 flex justify-between gap-4"><span className="text-white font-bold">实际发放</span><span className="text-nexus-accent font-bold font-mono">¥{Math.round(item.details.real).toLocaleString()}</span></div>
                  </div>
                ) : ( <div className="text-lg font-bold text-white font-mono leading-none">¥{displayValue.toLocaleString()}</div> )}
@@ -276,8 +280,8 @@ export const LineChart: React.FC<{ data: { label: string; value: number }[]; hei
             </feMerge>
           </filter>
         </defs>
-        <path d={areaD} fill="url(#lineGradient)" className="opacity-50 animate-[grow_1s_ease-out]" />
-        <path d={pathD} fill="none" stroke="#818cf8" strokeWidth="0.8" filter="url(#glow)" className="animate-[draw_2s_ease-out]" strokeLinecap="round" strokeLinejoin="round" />
+        <path d={areaD} fill="url(#lineGradient)" className="opacity-50 animate-grow" />
+        <path d={pathD} fill="none" stroke="#818cf8" strokeWidth="0.8" filter="url(#glow)" className="animate-draw" strokeLinecap="round" strokeLinejoin="round" />
         {points.map((p, i) => (
           <g key={i} onMouseEnter={() => setHoverIdx(i)}>
             <circle cx={p.x} cy={p.y} r={hoverIdx === i ? "2" : "1"} fill="#fff" className="transition-all duration-300" />
@@ -366,7 +370,7 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, 
   return (
     <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/80 backdrop-blur-md transition-opacity duration-300" onClick={onClose} />
-      <div className="relative bg-[#0F111A] border border-white/10 rounded-2xl w-[92%] md:w-full max-w-2xl shadow-2xl transform transition-all animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
+      <div className="relative bg-[#0F111A] border border-white/10 rounded-2xl w-[92%] md:w-full max-w-2xl shadow-2xl transform transition-all animate-slide-up duration-200 flex flex-col max-h-[90vh]">
         <div className="flex items-center justify-between p-4 md:p-6 border-b border-white/5 bg-gradient-to-r from-white/5 to-transparent"><h3 className="text-xl font-bold text-white tracking-tight flex items-center gap-2"><span className="w-1 h-6 bg-nexus-accent rounded-full"></span>{title}</h3><button onClick={onClose} className="text-nexus-muted hover:text-white transition-colors bg-white/5 hover:bg-white/10 p-1.5 rounded-lg"><X size={18} /></button></div>
         <div className="p-5 md:p-8 overflow-y-auto custom-scrollbar">{children}</div>
         {footer && <div className="p-4 md:p-6 border-t border-white/5 bg-white/5 rounded-b-2xl">{footer}</div>}
@@ -387,7 +391,7 @@ export const Toast: React.FC<ToastProps> = ({ message, type, onClose }) => {
   useEffect(() => { const timer = setTimeout(onClose, 3000); return () => clearTimeout(timer); }, [onClose]);
   const icons = { success: <CheckCircle size={18} className="text-green-400" />, error: <AlertCircle size={18} className="text-red-400" />, info: <Info size={18} className="text-blue-400" /> };
   const bgStyles = { success: "bg-[#0F111A] border-green-500/20 shadow-[0_0_15px_rgba(16,185,129,0.1)]", error: "bg-[#0F111A] border-red-500/20 shadow-[0_0_15px_rgba(239,68,68,0.1)]", info: "bg-[#0F111A] border-blue-500/20 shadow-[0_0_15px_rgba(59,130,246,0.1)]" };
-  return <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border backdrop-blur-md animate-in slide-in-from-top-2 fade-in ${bgStyles[type]}`}>{icons[type]}<span className="text-sm font-medium text-white">{message}</span><button onClick={onClose} className="ml-2 text-white/50 hover:text-white"><X size={14} /></button></div>;
+  return <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border backdrop-blur-md animate-slide-up ${bgStyles[type]}`}>{icons[type]}<span className="text-sm font-medium text-white">{message}</span><button onClick={onClose} className="ml-2 text-white/50 hover:text-white"><X size={14} /></button></div>;
 };
 
 export const ToastContainer: React.FC<{ toasts: { id: string; message: string; type: ToastType }[]; removeToast: (id: string) => void }> = ({ toasts, removeToast }) => (
