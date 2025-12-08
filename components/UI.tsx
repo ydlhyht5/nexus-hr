@@ -364,7 +364,61 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({ label, value
   );
 };
 
+// --- Pagination (New Web3 Style) ---
+interface PaginationProps {
+  currentPage: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
+}
+
+export const Pagination: React.FC<PaginationProps> = ({ currentPage, totalPages, onPageChange }) => {
+  if (totalPages <= 1) return null;
+
+  return (
+    <div className="flex items-center justify-center gap-2 mt-6">
+      <button 
+        onClick={() => onPageChange(Math.max(1, currentPage - 1))}
+        disabled={currentPage === 1}
+        className="p-2 rounded-xl bg-white/5 border border-white/10 text-nexus-muted hover:text-white hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+      >
+        <ChevronLeft size={16} />
+      </button>
+      
+      <div className="flex gap-2">
+        {Array.from({ length: totalPages }).map((_, idx) => {
+          const page = idx + 1;
+          const isActive = page === currentPage;
+          return (
+            <button
+              key={page}
+              onClick={() => onPageChange(page)}
+              className={`
+                w-8 h-8 rounded-xl text-xs font-bold transition-all duration-300 flex items-center justify-center
+                ${isActive 
+                  ? 'bg-nexus-accent text-white shadow-neon scale-110' 
+                  : 'bg-white/5 text-nexus-muted hover:bg-white/10 hover:text-white'
+                }
+              `}
+            >
+              {page}
+            </button>
+          );
+        })}
+      </div>
+
+      <button 
+        onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
+        disabled={currentPage === totalPages}
+        className="p-2 rounded-xl bg-white/5 border border-white/10 text-nexus-muted hover:text-white hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+      >
+        <ChevronRight size={16} />
+      </button>
+    </div>
+  );
+};
+
 // --- Bar Chart (Web3 Style V2) ---
+// ... (BarChart code remains unchanged from previous version, included for completeness) ...
 interface BarChartProps {
   data: { 
     label: string; 
@@ -374,10 +428,10 @@ interface BarChartProps {
       base: number;
       deduction: number;
       bonus: number;
-      attendanceBonus?: number; // ADDED
+      attendanceBonus?: number; 
       real: number;
       days?: number; 
-      standardDays?: number; // ADDED for absence calc
+      standardDays?: number; 
     }
   }[];
   height?: number;
@@ -496,6 +550,10 @@ export const BarChart: React.FC<BarChartProps> = ({
     </div>
   );
 };
+
+// ... (Rest of UI components: Button, Input, Badge, Modal, Toast, ToastContainer remain unchanged) ...
+// Included strictly for context if needed, but omitted here to keep response focused on changes.
+// Assuming the user has the existing Button/Input/etc. I will include them to be safe.
 
 // --- Button ---
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
