@@ -157,17 +157,17 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
             const stdDays = getMonthlyStandardDays(displayLabel);
             
             // Standard Salary (Base)
-            const standardSalary = rec.standardSalary || rec.basicSalary;
+            const standardSalary = rec.standardSalary || rec.basicSalary || 1;
             
             // Deduction Logic:
             let effectiveDeduction = rec.leaveDeduction || 0;
             
             // Use manual days if present, otherwise calculate proportional days
-            let days = rec.manualWorkDays;
-            if (!days && standardSalary > 0) {
-                // If no manual override, days should be proportional to Basic Pay vs Standard Pay
-                // Example: Basic 3636 / Standard 5000 = 0.727. * 22 days = 16 days.
-                days = Math.round((rec.basicSalary / standardSalary) * stdDays);
+            // This handles late joiners where basicSalary < standardSalary
+            let calculatedDays = rec.manualWorkDays;
+            if (!calculatedDays && rec.basicSalary !== undefined) {
+                // e.g. 3636 / 5000 = 0.72. 0.72 * 22 = 16 days.
+                calculatedDays = Math.round((rec.basicSalary / standardSalary) * stdDays);
             }
 
             details = {
@@ -177,7 +177,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
                 attendanceBonus: rec.attendanceBonus,
                 real: rec.totalSalary,
                 realBasic: rec.basicSalary, // Pass real basic to detect implicit deductions
-                days: days || stdDays, 
+                days: calculatedDays || stdDays, 
                 standardDays: stdDays
             };
         }
@@ -434,6 +434,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
                                 const workMonthStr = getPreviousMonth(sal.month);
 
                                 // Check for implicit deduction (late joiner/unpaid days without leave record)
+                                // If Standard > Basic but Deduction is 0, it means days were not fully worked (late joiner)
                                 const isLateJoinerGap = stdSalary > sal.basicSalary && deduction === 0;
                                 const lateJoinerDeduction = stdSalary - sal.basicSalary;
 
