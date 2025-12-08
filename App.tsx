@@ -1,10 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
 import { Employee, LeaveRequest, UserRole, UserSession, LeaveStatus, SalaryRecord } from './types';
 import { Button, Card, Input } from './components/UI';
 import { AdminDashboard } from './components/AdminDashboard';
 import { EmployeeDashboard } from './components/EmployeeDashboard';
-import { Lock, User as UserIcon, Shield, Database, Cloud, Wifi, WifiOff } from 'lucide-react';
+import { Lock, User as UserIcon, Shield, Cloud, Wifi, WifiOff, RefreshCw } from 'lucide-react';
 import { db } from './services/db';
 
 const ADMIN_USER = 'admin';
@@ -19,7 +18,11 @@ const App: React.FC = () => {
   const [salaryRecords, setSalaryRecords] = useState<SalaryRecord[]>([]);
   const [isDbReady, setIsDbReady] = useState(false);
   const [session, setSession] = useState<UserSession | null>(null);
-  const [dbMode, setDbMode] = useState<'CLOUD' | 'LOCAL'>('LOCAL');
+  
+  // Sync & Network State
+  const [pendingSyncCount, setPendingSyncCount] = useState(0);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   // --- Login State ---
   const [loginId, setLoginId] = useState('');
@@ -49,21 +52,47 @@ const App: React.FC = () => {
     }
   };
 
-  // Initialize DB and load data
+  // Initialize DB and Network Listeners
   useEffect(() => {
-    const initData = async () => {
-      try {
-        await db.init();
-        setDbMode(db.getMode());
-        await loadData();
-        setIsDbReady(true);
-      } catch (err) {
-        console.error("Failed to initialize database", err);
-        setIsDbReady(true);
-      }
+    const initApp = async () => {
+      await db.init();
+      
+      // Subscribe to sync count changes
+      db.onSyncStatusChange((count) => {
+        setPendingSyncCount(count);
+      });
+
+      await loadData();
+      setIsDbReady(true);
     };
-    initData();
+
+    initApp();
+
+    // Network Listeners
+    const handleOnline = () => {
+      setIsOnline(true);
+      triggerSync();
+    };
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
   }, []);
+
+  const triggerSync = async () => {
+    if (pendingSyncCount > 0) {
+      setIsSyncing(true);
+      await db.syncPendingChanges();
+      setIsSyncing(false);
+      // Reload data to reflect cloud state
+      await loadData(); 
+    }
+  };
 
   // Auto-Approve Worker
   useEffect(() => {
@@ -71,13 +100,11 @@ const App: React.FC = () => {
 
     const interval = setInterval(() => {
       const now = Date.now();
-      
       leaveRequests.forEach(async (req) => {
         if (req.status === LeaveStatus.PENDING && (now - req.createdAt > AUTO_APPROVE_MS)) {
            const updatedReq = { ...req, status: LeaveStatus.APPROVED };
            await db.saveLeave(updatedReq);
            setLeaveRequests(prev => prev.map(r => r.id === req.id ? updatedReq : r));
-           console.log('Auto-approved pending request:', req.id);
         }
       });
     }, 60000); 
@@ -102,7 +129,6 @@ const App: React.FC = () => {
     const emp = employees.find(e => e.id === loginId);
     if (emp) {
       if (emp.password === loginPass) {
-        // Check first login
         if (emp.isFirstLogin) {
           setShowPasswordChange(true);
         } else {
@@ -122,13 +148,11 @@ const App: React.FC = () => {
       setError('密码长度太短');
       return;
     }
-
     const targetEmp = employees.find(e => e.id === loginId);
     if (targetEmp) {
       const updatedEmp = { ...targetEmp, password: newPassword, isFirstLogin: false };
       await db.saveEmployee(updatedEmp);
       setEmployees(prev => prev.map(emp => emp.id === loginId ? updatedEmp : emp));
-      
       setSession({ id: updatedEmp.id, role: UserRole.EMPLOYEE, name: updatedEmp.name });
       setShowPasswordChange(false);
       setNewPassword('');
@@ -140,19 +164,21 @@ const App: React.FC = () => {
     setLoginId('');
     setLoginPass('');
     setError('');
-    loadData(); // Refresh data on logout to ensure sync
+    loadData();
   };
 
   // --- Admin Actions ---
 
   const addEmployee = async (emp: Employee) => {
     await db.saveEmployee(emp);
-    setEmployees(prev => [...prev, emp]);
+    setEmployees(prev => [...prev, emp]); // Optimistic update
+    loadData(); // Reload to ensure sync status is correct
   };
 
   const updateEmployee = async (updatedEmp: Employee) => {
     await db.saveEmployee(updatedEmp);
     setEmployees(prev => prev.map(e => e.id === updatedEmp.id ? updatedEmp : e));
+    loadData();
   };
 
   const resetPassword = async (id: string) => {
@@ -188,20 +214,13 @@ const App: React.FC = () => {
     });
   };
 
-  // Placeholders for local mode since we are hybrid now
-  const handleImportData = (file: File) => {
-     alert("数据同步由 Cloudflare D1 或本地 IndexedDB 自动处理。");
-  };
-
-  const handleExportData = () => {
-     alert("数据已安全存储。");
-  };
+  const handleImportData = (file: File) => alert("系统已启用自动云同步，无需手动导入。");
+  const handleExportData = () => alert("数据已安全存储在云端 (Cloudflare D1)。");
 
   // --- Employee Actions ---
 
   const submitLeave = async (start: string, end: string, days: number, reason: string, existingId?: string) => {
     if (!session) return;
-
     if (existingId) {
       const target = leaveRequests.find(r => r.id === existingId);
       if (target) {
@@ -237,26 +256,42 @@ const App: React.FC = () => {
     );
   }
 
+  // --- Sync Indicator Footer ---
+  const SyncFooter = () => (
+    <div className={`fixed bottom-0 left-0 right-0 py-1 px-4 text-xs font-mono flex justify-between items-center z-[200] border-t border-white/5 backdrop-blur-md transition-colors ${isOnline ? 'bg-nexus-card/90 text-nexus-muted' : 'bg-red-900/50 text-red-200'}`}>
+      <div className="flex items-center gap-2">
+        {isOnline ? <Wifi size={12} className="text-green-500"/> : <WifiOff size={12} />}
+        <span>{isOnline ? 'Online' : 'Offline Mode'}</span>
+      </div>
+      
+      <div className="flex items-center gap-2">
+        {isSyncing ? (
+          <>
+            <RefreshCw size={12} className="animate-spin text-blue-400" />
+            <span className="text-blue-400">正在同步...</span>
+          </>
+        ) : pendingSyncCount > 0 ? (
+          <>
+            <Cloud size={12} className="text-orange-400" />
+            <span className="text-orange-400">{pendingSyncCount} 条数据待上传</span>
+            {isOnline && <button onClick={triggerSync} className="underline hover:text-white ml-2">立即同步</button>}
+          </>
+        ) : (
+          <>
+            <Cloud size={12} className="text-green-500" />
+            <span className="text-green-500">所有数据已同步</span>
+          </>
+        )}
+      </div>
+    </div>
+  );
+
   if (!session) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4 overflow-hidden relative">
         <div className="absolute top-0 left-0 w-full h-full overflow-hidden -z-10">
           <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-600/20 rounded-full blur-3xl animate-pulse-slow"></div>
           <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-indigo-600/20 rounded-full blur-3xl animate-pulse-slow" style={{ animationDelay: '2s' }}></div>
-        </div>
-
-        <div className="absolute top-4 right-4 flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs font-mono">
-            {dbMode === 'CLOUD' ? (
-                <>
-                    <Wifi size={14} className="text-green-400" />
-                    <span className="text-green-400">Cloud Online</span>
-                </>
-            ) : (
-                <>
-                    <WifiOff size={14} className="text-orange-400" />
-                    <span className="text-orange-400">Local Mode</span>
-                </>
-            )}
         </div>
 
         <Card className="w-full max-w-md bg-nexus-card/80 backdrop-blur-md border-white/10 shadow-2xl relative z-10">
@@ -315,56 +350,41 @@ const App: React.FC = () => {
               <Button type="submit" className="w-full py-3 text-lg">
                 登录系统
               </Button>
-              
-              <div className="flex items-center justify-center gap-2 text-xs text-nexus-muted mt-4">
-                {dbMode === 'CLOUD' ? <Cloud size={12} /> : <Database size={12} />}
-                <span>
-                    {dbMode === 'CLOUD' 
-                        ? '数据已同步至 Cloudflare D1' 
-                        : '无法连接云端，使用本地 IndexedDB 存储'}
-                </span>
-              </div>
             </form>
           )}
         </Card>
+        <SyncFooter />
       </div>
     );
   }
 
-  if (session.role === UserRole.ADMIN) {
-    return (
-      <AdminDashboard 
-        employees={employees}
-        leaveRequests={leaveRequests}
-        salaryRecords={salaryRecords}
-        onAddEmployee={addEmployee}
-        onUpdateEmployee={updateEmployee}
-        onResetPassword={resetPassword}
-        onUpdateLeaveStatus={updateLeaveStatus}
-        onSaveSalary={saveSalary}
-        onImportData={handleImportData}
-        onExportData={handleExportData}
-        onLogout={handleLogout}
-      />
-    );
-  }
-
-  const currentEmployee = employees.find(e => e.id === session.id);
-  if (!currentEmployee) return (
-     <div className="min-h-screen flex items-center justify-center bg-nexus-dark text-white flex-col gap-4">
-        <div>加载用户信息失败...</div>
-        <Button onClick={handleLogout}>返回登录</Button>
-     </div>
-  );
-
   return (
-    <EmployeeDashboard 
-      employee={currentEmployee}
-      requests={leaveRequests.filter(req => req.employeeId === session.id)}
-      salaryRecords={salaryRecords}
-      onSubmitLeave={submitLeave}
-      onLogout={handleLogout}
-    />
+    <div className="pb-8"> 
+      {session.role === UserRole.ADMIN ? (
+        <AdminDashboard 
+          employees={employees}
+          leaveRequests={leaveRequests}
+          salaryRecords={salaryRecords}
+          onAddEmployee={addEmployee}
+          onUpdateEmployee={updateEmployee}
+          onResetPassword={resetPassword}
+          onUpdateLeaveStatus={updateLeaveStatus}
+          onSaveSalary={saveSalary}
+          onImportData={handleImportData}
+          onExportData={handleExportData}
+          onLogout={handleLogout}
+        />
+      ) : (
+        <EmployeeDashboard 
+          employee={employees.find(e => e.id === session.id)!}
+          requests={leaveRequests.filter(req => req.employeeId === session.id)}
+          salaryRecords={salaryRecords}
+          onSubmitLeave={submitLeave}
+          onLogout={handleLogout}
+        />
+      )}
+      <SyncFooter />
+    </div>
   );
 };
 
