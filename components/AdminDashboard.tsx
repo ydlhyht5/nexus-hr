@@ -197,6 +197,12 @@ const SalaryRow: React.FC<{
   
   const finalDays = manualDaysNum > 0 ? manualDaysNum : systemNetWorkDays;
   const dailyRate = monthlyStandardDays > 0 ? (baseSalarySetting / monthlyStandardDays) : 0;
+  
+  // STRICT CALCULATION RULES:
+  // 1. Leave Deduction = DailyRate * LeaveDays (Calculated separately)
+  // 2. Base Salary = DailyRate * WorkedDays (Effective Base)
+  // NOTE: When saving, we save the Calculated Base (Effective) and the Deduction separately for display.
+  
   const calculatedBaseSalary = isNotJoined ? 0 : (dailyRate * finalDays);
   
   const standardSalaryForMonth = isNotJoined ? 0 : baseSalarySetting; 
@@ -217,9 +223,9 @@ const SalaryRow: React.FC<{
       employeeId: emp.id,
       employeeName: emp.name,
       month: payoutMonth,
-      basicSalary: Math.round(calculatedBaseSalary), 
+      basicSalary: Math.round(calculatedBaseSalary), // Saved as the NET basic pay
       manualWorkDays: manualDaysNum,
-      standardSalary: Math.round(standardSalaryForMonth), 
+      standardSalary: Math.round(standardSalaryForMonth), // Saved as the Standard GROSS pay
       leaveDeduction: Math.round(manualDaysNum > 0 ? 0 : leaveDeductionAmount), 
       salesAmount: salesNum,
       bonusRate: rateNum,
@@ -591,12 +597,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
             const rec = salaryRecords.find(r => r.month === payoutMonthStr && r.employeeId === targetEmpId);
             if (rec) {
               value = rec.totalSalary;
-              const systemNetWorkDays = rec.manualWorkDays && rec.manualWorkDays > 0 ? rec.manualWorkDays : undefined;
-              
               const stdDays = getMonthlyStandardDays(displayLabel);
 
               details = {
-                base: rec.basicSalary || 0, // UPDATED: Use PAID BASIC
+                // Pass the Standard (Gross) Salary as the base for the chart tooltip
+                // This ensures the math: Standard - Deduction + Bonus = Total looks correct
+                base: rec.standardSalary || rec.basicSalary || 0, 
                 deduction: rec.leaveDeduction || 0,
                 bonus: rec.bonusAmount,
                 attendanceBonus: rec.attendanceBonus,
@@ -691,7 +697,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
                           probationEnd.setMonth(probationEnd.getMonth() + emp.probationMonths);
                           const isProbation = new Date() < probationEnd;
                           return (
-                              <NeonCard key={emp.id} onClick={() => handleOpenModal(emp)}>
+                              <NeonCard key={emp.id}>
                                   <div className="flex justify-between items-start mb-6">
                                       <div className="flex items-center gap-4">
                                           <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-[#1E2030] to-[#0B0C15] border border-white/10 flex items-center justify-center font-bold text-white shadow-inner">
@@ -987,6 +993,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
              <Button variant="primary" onClick={handleFormSubmit} className="flex-1">{editingId ? '保存修改' : '确认入职'}</Button>
            </div>
         }>
+         {/* ... Modal Content kept same ... */}
          <div className="space-y-6">
             {!editingId && (
                <div className="text-center py-4 bg-white/5 rounded-2xl border border-white/5 mb-6 relative">
