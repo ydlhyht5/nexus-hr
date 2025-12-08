@@ -328,6 +328,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const workMonth = getPreviousMonth(selectedMonth);
 
+  // Filter leave requests to exclude deleted employees
+  const activeLeaveRequests = leaveRequests.filter(req => 
+      employees.some(e => e.id === req.employeeId)
+  );
+
   const calculateProbationStatus = () => {
      if (!newEmp.joinDate) return '-';
      const start = new Date(newEmp.joinDate);
@@ -560,7 +565,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         }`}
                     >
                         <tab.icon size={16} /> {tab.label}
-                        {tab.id === 'leaves' && leaveRequests.some(l => l.status === LeaveStatus.PENDING) && (
+                        {tab.id === 'leaves' && activeLeaveRequests.some(l => l.status === LeaveStatus.PENDING) && (
                            <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse ml-1"></span>
                         )}
                     </button>
@@ -636,14 +641,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
             {activeTab === 'leaves' && (
               <div className="max-w-4xl mx-auto">
-                 {leaveRequests.length === 0 ? (
+                 {activeLeaveRequests.length === 0 ? (
                    <Card className="text-center py-20 text-nexus-muted border-dashed border-2 border-white/5 bg-transparent">
                       <Calendar size={48} className="mx-auto mb-4 opacity-20"/>
                       <p>暂无待处理的请假申请。</p>
                    </Card>
                  ) : (
                    <div className="space-y-4">
-                   {leaveRequests.map(req => (
+                   {activeLeaveRequests.map(req => (
                      <Card key={req.id} className="relative overflow-hidden group hover:border-nexus-accent/30 transition-colors">
                        {req.status === LeaveStatus.PENDING && (
                          <div className="absolute left-0 top-0 bottom-0 w-1 bg-yellow-500"></div>
