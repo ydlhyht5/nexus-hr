@@ -69,6 +69,10 @@ class DatabaseService {
         ...options,
       });
       if (!response.ok) throw new Error(`API Error: ${response.statusText}`);
+      // For DELETE requests or empty responses
+      if (response.status === 204 || response.headers.get('content-length') === '0') {
+          return {} as T;
+      }
       return await response.json();
     } catch (error) {
       throw error;
@@ -95,6 +99,18 @@ class DatabaseService {
       const tx = db.transaction(storeName, 'readwrite');
       const store = tx.objectStore(storeName);
       const request = store.put(data);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  private async deleteLocal(storeName: string, id: string): Promise<void> {
+    const db = await this.dbPromise;
+    if (!db) return;
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(storeName, 'readwrite');
+      const store = tx.objectStore(storeName);
+      const request = store.delete(id);
       request.onsuccess = () => resolve();
       request.onerror = () => reject(request.error);
     });
@@ -155,6 +171,24 @@ class DatabaseService {
     this.notifySyncListeners();
   }
 
+  private async deleteData(storeName: string, endpoint: string, id: string): Promise<void> {
+      // 1. Delete from local
+      await this.deleteLocal(storeName, id);
+      
+      try {
+          // 2. Try delete from cloud
+          // Note: Current worker implementation might need an update to support DELETE method
+          // If the worker supports DELETE /api/employees?id=xxx or DELETE /api/employees with body {id}
+          // Assuming RESTful DELETE for future proofing or explicit ID param
+          await this.fetchAPI(`${endpoint}?id=${id}`, {
+              method: 'DELETE'
+          });
+      } catch(e) {
+          console.warn(`[${storeName}] Cloud delete failed, but deleted locally.`, e);
+      }
+      this.notifySyncListeners();
+  }
+
   // --- Public Methods ---
 
   async init(): Promise<void> {
@@ -169,6 +203,9 @@ class DatabaseService {
   }
   async saveEmployee(emp: Employee): Promise<void> {
     return this.saveData('employees', '/api/employees', emp);
+  }
+  async deleteEmployee(id: string): Promise<void> {
+      return this.deleteData('employees', '/api/employees', id);
   }
 
   // Leaves
