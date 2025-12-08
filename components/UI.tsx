@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { X, CheckCircle, AlertCircle, Info } from 'lucide-react';
+import React, { useEffect, useState, useRef } from 'react';
+import { X, CheckCircle, AlertCircle, Info, Calendar as CalendarIcon, ChevronLeft, ChevronRight, ChevronDown, Check } from 'lucide-react';
 
 // --- Card (Standard) ---
 export const Card: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = '' }) => (
@@ -59,6 +59,201 @@ export const Avatar: React.FC<AvatarProps> = ({ name, size = 'md', selected, onC
       {selected && (
         <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-400 rounded-full border-2 border-[#0B0C15]"></div>
       )}
+    </div>
+  );
+};
+
+// --- Custom Select (Frosted Glass) ---
+interface CustomSelectProps {
+  label?: string;
+  value: string;
+  options: { value: string; label: string }[];
+  onChange: (value: string) => void;
+  className?: string;
+}
+
+export const CustomSelect: React.FC<CustomSelectProps> = ({ label, value, options, onChange, className = '' }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const selectedLabel = options.find(o => o.value === value)?.label || '请选择';
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  return (
+    <div className={`flex flex-col gap-1.5 w-full ${className}`} ref={containerRef}>
+      {label && <label className="text-xs font-semibold text-nexus-muted uppercase tracking-wider pl-1">{label}</label>}
+      <div className="relative">
+        <div 
+          onClick={() => setIsOpen(!isOpen)}
+          className={`
+            bg-white/5 backdrop-blur-md border border-white/10 rounded-xl px-4 py-3 text-sm text-white cursor-pointer
+            flex justify-between items-center transition-all duration-300
+            hover:bg-white/10 hover:border-white/20 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)]
+            ${isOpen ? 'ring-1 ring-nexus-accent/50 border-nexus-accent/50 bg-white/10' : ''}
+          `}
+        >
+          <span>{selectedLabel}</span>
+          <ChevronDown size={16} className={`text-nexus-muted transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
+        </div>
+
+        {/* Dropdown Menu */}
+        <div className={`
+          absolute top-full left-0 right-0 mt-2 bg-[#0F111A]/95 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden shadow-[0_10px_40px_-10px_rgba(0,0,0,0.8)] z-50
+          transition-all duration-200 origin-top
+          ${isOpen ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 -translate-y-2 pointer-events-none'}
+        `}>
+          <div className="max-h-[200px] overflow-y-auto custom-scrollbar p-1">
+            {options.map((opt) => (
+              <div 
+                key={opt.value}
+                onClick={() => { onChange(opt.value); setIsOpen(false); }}
+                className={`
+                  px-3 py-2.5 rounded-lg text-sm cursor-pointer flex items-center justify-between
+                  transition-colors duration-150
+                  ${value === opt.value ? 'bg-nexus-accent/20 text-nexus-accent' : 'text-nexus-muted hover:text-white hover:bg-white/5'}
+                `}
+              >
+                {opt.label}
+                {value === opt.value && <Check size={14} />}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// --- Custom Date Picker (Frosted Glass) ---
+interface CustomDatePickerProps {
+  label?: string;
+  value: string;
+  onChange: (date: string) => void;
+  className?: string;
+}
+
+export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({ label, value, onChange, className = '' }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  
+  // Internal state for calendar navigation
+  const [viewDate, setViewDate] = useState(value ? new Date(value) : new Date());
+
+  useEffect(() => {
+    if (value) setViewDate(new Date(value));
+  }, [value]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const formatDate = (d: Date) => {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+
+  const handleDayClick = (d: Date) => {
+    onChange(formatDate(d));
+    setIsOpen(false);
+  };
+
+  // Calendar Logic
+  const year = viewDate.getFullYear();
+  const month = viewDate.getMonth();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const firstDayOfMonth = new Date(year, month, 1).getDay(); // 0 = Sun
+  
+  const daysArray = [];
+  for (let i = 0; i < firstDayOfMonth; i++) {
+    daysArray.push(null);
+  }
+  for (let i = 1; i <= daysInMonth; i++) {
+    daysArray.push(new Date(year, month, i));
+  }
+
+  const changeMonth = (offset: number) => {
+    setViewDate(new Date(year, month + offset, 1));
+  };
+
+  return (
+    <div className={`flex flex-col gap-1.5 w-full ${className}`} ref={containerRef}>
+      {label && <label className="text-xs font-semibold text-nexus-muted uppercase tracking-wider pl-1">{label}</label>}
+      <div className="relative">
+        <div 
+          onClick={() => setIsOpen(!isOpen)}
+          className={`
+            bg-white/5 backdrop-blur-md border border-white/10 rounded-xl px-4 py-3 text-sm text-white cursor-pointer
+            flex justify-between items-center transition-all duration-300 group
+            hover:bg-white/10 hover:border-white/20 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)]
+            ${isOpen ? 'ring-1 ring-nexus-accent/50 border-nexus-accent/50 bg-white/10' : ''}
+          `}
+        >
+          <span className={value ? 'text-white font-mono' : 'text-gray-500'}>{value || 'mm/dd/yyyy'}</span>
+          <CalendarIcon size={16} className={`text-nexus-muted group-hover:text-white transition-colors duration-300 ${isOpen ? 'text-nexus-accent' : ''}`} />
+        </div>
+
+        {/* Calendar Popup */}
+        <div className={`
+          absolute top-full left-0 mt-2 w-[280px] bg-[#0F111A]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.8)] z-50 p-4
+          transition-all duration-200 origin-top-left
+          ${isOpen ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 -translate-y-2 pointer-events-none'}
+        `}>
+          {/* Header */}
+          <div className="flex justify-between items-center mb-4 pb-2 border-b border-white/5">
+            <button onClick={(e) => {e.stopPropagation(); changeMonth(-1)}} className="p-1 rounded-lg hover:bg-white/10 text-nexus-muted hover:text-white transition-colors"><ChevronLeft size={16}/></button>
+            <div className="text-sm font-bold text-white font-mono">
+              {viewDate.toLocaleString('default', { month: 'short' })} {year}
+            </div>
+            <button onClick={(e) => {e.stopPropagation(); changeMonth(1)}} className="p-1 rounded-lg hover:bg-white/10 text-nexus-muted hover:text-white transition-colors"><ChevronRight size={16}/></button>
+          </div>
+
+          {/* Grid */}
+          <div className="grid grid-cols-7 gap-1 text-center mb-2">
+            {['Su','Mo','Tu','We','Th','Fr','Sa'].map(d => (
+              <div key={d} className="text-[10px] text-nexus-muted uppercase font-bold">{d}</div>
+            ))}
+          </div>
+          <div className="grid grid-cols-7 gap-1">
+            {daysArray.map((date, idx) => {
+              if (!date) return <div key={idx}></div>;
+              const isSelected = value === formatDate(date);
+              const isToday = formatDate(new Date()) === formatDate(date);
+              
+              return (
+                <button
+                  key={idx}
+                  onClick={(e) => { e.stopPropagation(); handleDayClick(date); }}
+                  className={`
+                    h-8 w-8 rounded-lg text-xs font-medium transition-all duration-200
+                    ${isSelected 
+                      ? 'bg-nexus-accent text-white shadow-neon' 
+                      : isToday 
+                        ? 'bg-white/10 text-nexus-accent border border-nexus-accent/30'
+                        : 'text-white hover:bg-white/10 hover:text-white'
+                    }
+                  `}
+                >
+                  {date.getDate()}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
@@ -245,33 +440,6 @@ export const Input: React.FC<InputProps> = ({ label, error, className = '', ...p
       {...props}
     />
     {error && <span className="text-xs text-red-400 pl-1">{error}</span>}
-  </div>
-);
-
-// --- Select ---
-interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
-  label?: string;
-  options: { value: string; label: string }[];
-}
-
-export const Select: React.FC<SelectProps> = ({ label, options, className = '', ...props }) => (
-  <div className="flex flex-col gap-1.5 w-full">
-    {label && <label className="text-xs font-semibold text-nexus-muted uppercase tracking-wider pl-1">{label}</label>}
-    <div className="relative">
-      <select
-        className={`bg-nexus-dark/50 border border-white/10 rounded-xl px-4 py-3 text-sm text-nexus-text appearance-none w-full focus:outline-none focus:ring-1 focus:ring-nexus-accent/50 transition-all ${className}`}
-        {...props}
-      >
-        {options.map((opt) => (
-          <option key={opt.value} value={opt.value} className="bg-nexus-card text-nexus-text">
-            {opt.label}
-          </option>
-        ))}
-      </select>
-      <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-nexus-muted">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
-      </div>
-    </div>
   </div>
 );
 
