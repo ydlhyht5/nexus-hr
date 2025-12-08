@@ -152,7 +152,6 @@ const SalaryRow: React.FC<{
   addToast: (msg: string, type: ToastType) => void;
 }> = ({ emp, payoutMonth, workMonth, salaryRecords, leaveRequests, onSaveSalary, addToast }) => {
   const recordId = `${emp.id}_${payoutMonth}`;
-  const existingRecord = salaryRecords.find(r => r.id === recordId);
   const status = getSalaryStatus(emp, workMonth);
   const isNotJoined = status === 'NOT_JOINED';
   
@@ -164,31 +163,45 @@ const SalaryRow: React.FC<{
   // Calculate System Net Work Days (Potential - Leaves)
   const systemNetWorkDays = Math.max(0, potentialWorkDays - leaveDays);
 
-  const [sales, setSales] = useState(isNotJoined ? '0' : (existingRecord?.salesAmount?.toString() || ''));
-  const [rate, setRate] = useState(isNotJoined ? '0' : (existingRecord?.bonusRate?.toString() || ''));
-  
-  // Manual Override Input
-  const [manualDays, setManualDays] = useState(isNotJoined ? '0' : (existingRecord?.manualWorkDays?.toString() || '0'));
-  
-  const [attBonus, setAttBonus] = useState(isNotJoined ? '0' : (existingRecord?.attendanceBonus?.toString() || '0'));
+  // Local state for inputs
+  const [sales, setSales] = useState('0');
+  const [rate, setRate] = useState('0');
+  const [manualDays, setManualDays] = useState('0');
+  const [attBonus, setAttBonus] = useState('0');
+
+  // Track editing state to prevent background polling from overwriting unsaved changes
+  const [isDirty, setIsDirty] = useState(false);
+  const prevRecordIdRef = useRef(recordId);
 
   useEffect(() => {
+     const currentRecordId = `${emp.id}_${payoutMonth}`;
+     
+     // Detect context switch (changed month or employee row reuse)
+     if (currentRecordId !== prevRecordIdRef.current) {
+         setIsDirty(false); // Reset dirty flag
+         prevRecordIdRef.current = currentRecordId;
+     } else if (isDirty) {
+         // If same record and user is editing, IGNORE background updates to prevent reset
+         return;
+     }
+
      if (isNotJoined) {
          setSales('0');
          setRate('0');
          setManualDays('0');
          setAttBonus('0');
      } else {
-         const rec = salaryRecords.find(r => r.id === `${emp.id}_${payoutMonth}`);
+         const rec = salaryRecords.find(r => r.id === currentRecordId);
          setSales(rec?.salesAmount?.toString() || '');
          setRate(rec?.bonusRate?.toString() || '');
          // STRICT: Only use manual override if it was explicitly saved. Default display is 0.
          setManualDays(rec?.manualWorkDays?.toString() || '0');
          setAttBonus(rec?.attendanceBonus?.toString() || '0');
      }
-  }, [payoutMonth, salaryRecords, emp.id, isNotJoined]);
+  }, [payoutMonth, salaryRecords, emp.id, isNotJoined]); // isDirty is read inside, not a dep that triggers re-run
 
   const handleInputChange = (setter: React.Dispatch<React.SetStateAction<string>>, value: string) => {
+      setIsDirty(true); // Mark as dirty on any user input
       if (value.length > 1 && value.startsWith('0') && value[1] !== '.') {
           setter(value.substring(1));
       } else {
@@ -250,8 +263,13 @@ const SalaryRow: React.FC<{
       updatedAt: Date.now()
     };
     onSaveSalary(record);
+    // Note: We intentionally DO NOT reset isDirty here. 
+    // We want the inputs to remain in "user-controlled" state until the user navigates away 
+    // or switches months, to prevent immediate flicker if the DB update lags.
     addToast('工资条已保存', 'success');
   };
+
+  const existingRecord = salaryRecords.find(r => r.id === recordId);
 
   const isSaved = existingRecord && 
     Math.abs(existingRecord.totalSalary - Math.round(total)) < 1;
