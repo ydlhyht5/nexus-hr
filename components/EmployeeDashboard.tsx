@@ -271,16 +271,16 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
                            <div key={sal.id} className="bg-white/5 border border-white/5 rounded-xl p-4">
                               <div className="flex justify-between items-center mb-3">
                                   <span className="text-lg font-bold text-white font-mono">{sal.month}</span>
-                                  <span className="text-xl font-bold text-emerald-400 font-mono">¥{sal.totalSalary.toLocaleString()}</span>
+                                  <span className="text-xl font-bold text-emerald-400 font-mono">¥{Math.round(sal.totalSalary).toLocaleString()}</span>
                               </div>
                               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs text-nexus-muted">
                                   <div>
                                       <div className="uppercase mb-1">基本工资</div>
-                                      <div className="text-white font-mono">¥{sal.basicSalary.toLocaleString()}</div>
+                                      <div className="text-white font-mono">¥{Math.round(sal.basicSalary).toLocaleString()}</div>
                                   </div>
                                   <div>
                                       <div className="uppercase mb-1">销售业绩</div>
-                                      <div className="text-white font-mono">¥{sal.salesAmount.toLocaleString()}</div>
+                                      <div className="text-white font-mono">¥{Math.round(sal.salesAmount).toLocaleString()}</div>
                                   </div>
                                   <div>
                                       <div className="uppercase mb-1">提成比例</div>
@@ -288,7 +288,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
                                   </div>
                                   <div>
                                       <div className="uppercase mb-1">提成奖金</div>
-                                      <div className="text-green-300 font-mono">+¥{sal.bonusAmount.toLocaleString()}</div>
+                                      <div className="text-green-300 font-mono">+¥{Math.round(sal.bonusAmount).toLocaleString()}</div>
                                   </div>
                               </div>
                               <div className="mt-3 pt-2 border-t border-white/5 text-[10px] text-right text-gray-600">
