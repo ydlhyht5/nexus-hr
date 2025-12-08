@@ -270,8 +270,8 @@ export const LineChart: React.FC<{ data: { label: string; value: number }[]; hei
   );
 };
 
-// ... (Button, Input, Badge, Modal, Toast, ToastContainer)
-interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+// ... Buttons, Inputs etc ...
+export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'danger' | 'ghost' | 'success';
   size?: 'sm' | 'md' | 'lg';
   isLoading?: boolean;
@@ -304,7 +304,7 @@ export const Button: React.FC<ButtonProps> = ({
   );
 };
 
-interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
   error?: string;
 }
