@@ -1,34 +1,28 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { X, CheckCircle, AlertCircle, Info, Calendar as CalendarIcon, ChevronLeft, ChevronRight, ChevronDown, Check } from 'lucide-react';
 
-// ... (Card, NeonCard, Avatar, Button, Input, Select, DatePicker, MonthPicker, Badge, Modal, Toast, Pagination, BarChart are kept exactly as is)
-// ... I will reprint the file structure but for brevity in this specific response block I am appending LineChart. 
-// However, the rules say "Full content", so I will output the FULL file content.
-
-// --- Card (Standard) ---
+// --- Card (Enhanced Web3 Gradient Border) ---
 export const Card: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = '' }) => (
-  <div className={`bg-nexus-card border border-white/5 rounded-2xl p-6 shadow-float backdrop-blur-sm ${className}`}>
-    {children}
+  <div className={`relative p-[1px] rounded-2xl bg-gradient-to-b from-white/15 via-white/5 to-white/5 transition-all duration-300 hover:shadow-neon-hover ${className}`}>
+    <div className="bg-nexus-card rounded-2xl h-full w-full p-6 backdrop-blur-xl relative z-10">
+        {children}
+    </div>
   </div>
 );
 
-// --- Neon Card (Web3 Style with Gradient Border) ---
+// --- Neon Card ---
 export const NeonCard: React.FC<{ children: React.ReactNode; className?: string; onClick?: () => void }> = ({ children, className = '', onClick }) => (
   <div 
     onClick={onClick}
-    className={`group relative rounded-2xl p-[1px] bg-gradient-to-br from-white/5 via-white/10 to-transparent hover:from-nexus-accent hover:via-purple-500 hover:to-pink-500 transition-all duration-150 ${onClick ? 'cursor-pointer' : ''} ${className}`}
+    className={`group relative rounded-2xl p-[1px] bg-gradient-to-br from-white/20 via-white/5 to-transparent hover:from-nexus-accent hover:via-purple-500 hover:to-pink-500 transition-all duration-300 ${onClick ? 'cursor-pointer' : ''} ${className}`}
   >
-    {/* Inner Background */}
-    <div className="bg-[#0B0C15] h-full w-full rounded-2xl p-6 relative z-10 overflow-hidden">
-        {/* Subtle Grid Background */}
+    <div className="bg-[#0B0C15] h-full w-full rounded-2xl p-6 relative z-10 overflow-hidden transition-colors group-hover:bg-[#0f111a]">
         <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 pointer-events-none"></div>
         <div className="relative z-10 h-full flex flex-col">
             {children}
         </div>
     </div>
-    
-    {/* Glow Effect */}
-    <div className="absolute inset-0 bg-nexus-accent/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-150 rounded-2xl -z-0"></div>
+    <div className="absolute inset-0 bg-nexus-accent/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-2xl -z-0"></div>
   </div>
 );
 
@@ -223,24 +217,16 @@ export const BarChart: React.FC<{ data: any[]; height?: number; colorStart?: str
   );
 };
 
-// --- Line Chart (New Web3 Style) ---
-interface LineChartProps {
-  data: { label: string; value: number }[];
-  height?: number;
-}
-
-export const LineChart: React.FC<LineChartProps> = ({ data, height = 250 }) => {
+// --- Line Chart ---
+export const LineChart: React.FC<{ data: { label: string; value: number }[]; height?: number }> = ({ data, height = 250 }) => {
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
-  
   if (!data || data.length === 0) return <div className="h-[250px] flex items-center justify-center text-nexus-muted">暂无数据</div>;
-
-  const maxValue = Math.max(...data.map(d => d.value)) * 1.1 || 1000; // Add some headroom
+  const maxValue = Math.max(...data.map(d => d.value)) * 1.1 || 1000;
   const points = data.map((d, i) => {
     const x = (i / (data.length - 1)) * 100;
     const y = 100 - (d.value / maxValue) * 100;
     return { x, y, ...d };
   });
-
   const pathD = `M ${points.map(p => `${p.x},${p.y}`).join(' L ')}`;
   const areaD = `${pathD} L 100,100 L 0,100 Z`;
 
@@ -260,14 +246,8 @@ export const LineChart: React.FC<LineChartProps> = ({ data, height = 250 }) => {
             </feMerge>
           </filter>
         </defs>
-        
-        {/* Area Fill */}
         <path d={areaD} fill="url(#lineGradient)" className="opacity-50 animate-[grow_1s_ease-out]" />
-        
-        {/* Line */}
         <path d={pathD} fill="none" stroke="#818cf8" strokeWidth="0.8" filter="url(#glow)" className="animate-[draw_2s_ease-out]" strokeLinecap="round" strokeLinejoin="round" />
-
-        {/* Data Points */}
         {points.map((p, i) => (
           <g key={i} onMouseEnter={() => setHoverIdx(i)}>
             <circle cx={p.x} cy={p.y} r={hoverIdx === i ? "2" : "1"} fill="#fff" className="transition-all duration-300" />
@@ -275,34 +255,29 @@ export const LineChart: React.FC<LineChartProps> = ({ data, height = 250 }) => {
           </g>
         ))}
       </svg>
-
-      {/* Tooltip Overlay */}
       {hoverIdx !== null && (
-        <div 
-          className="absolute bg-[#0F111A] border border-white/10 rounded-xl px-3 py-2 text-xs shadow-neon pointer-events-none transform -translate-x-1/2 -translate-y-full transition-all"
-          style={{ 
-            left: `${points[hoverIdx].x}%`, 
-            top: `${points[hoverIdx].y}%`, 
-            marginTop: '-12px'
-          }}
-        >
+        <div className="absolute bg-[#0F111A] border border-white/10 rounded-xl px-3 py-2 text-xs shadow-neon pointer-events-none transform -translate-x-1/2 -translate-y-full transition-all" style={{ left: `${points[hoverIdx].x}%`, top: `${points[hoverIdx].y}%`, marginTop: '-12px' }}>
           <div className="text-nexus-muted mb-1">{points[hoverIdx].label}</div>
           <div className="text-white font-mono font-bold">¥{Math.round(points[hoverIdx].value).toLocaleString()}</div>
         </div>
       )}
-
-      {/* X Axis Labels */}
       <div className="absolute bottom-0 w-full flex justify-between text-[10px] text-nexus-muted translate-y-full pt-2">
         {data.map((d, i) => (
-          <span key={i} className={i === 0 || i === data.length-1 || i % 2 === 0 ? 'opacity-100' : 'opacity-0 md:opacity-50'}>{d.label.split('-')[1]}月</span>
+          <span key={i} className={i === 0 || i === data.length-1 || i % 2 === 0 ? 'opacity-100' : 'opacity-0 md:opacity-50'}>{d.label.split('-')[1] || d.label}月</span>
         ))}
       </div>
     </div>
   );
 };
 
-// ... Buttons, Inputs etc are reused ... (Previous components assumed present)
-// Including Button, Input, Badge, Modal, Toast, ToastContainer for completeness
+// ... (Button, Input, Badge, Modal, Toast, ToastContainer)
+interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: 'primary' | 'secondary' | 'danger' | 'ghost' | 'success';
+  size?: 'sm' | 'md' | 'lg';
+  isLoading?: boolean;
+  icon?: React.ReactNode;
+}
+
 export const Button: React.FC<ButtonProps> = ({ 
   children, 
   variant = 'primary', 
@@ -329,6 +304,11 @@ export const Button: React.FC<ButtonProps> = ({
   );
 };
 
+interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+  label?: string;
+  error?: string;
+}
+
 export const Input: React.FC<InputProps> = ({ label, error, className = '', ...props }) => (
   <div className="flex flex-col gap-1.5 w-full">
     {label && <label className="text-xs font-semibold text-nexus-muted uppercase tracking-wider pl-1">{label}</label>}
@@ -343,6 +323,14 @@ export const Badge: React.FC<{ status: string }> = ({ status }) => {
   return <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${styles[status] || 'bg-gray-500/10 text-gray-400 border-gray-500/20'}`}>{labels[status] || status}</span>;
 };
 
+export interface ModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  title: string;
+  children: React.ReactNode;
+  footer?: React.ReactNode;
+}
+
 export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, footer }) => {
   if (!isOpen) return null;
   return (
@@ -356,6 +344,14 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, 
     </div>
   );
 };
+
+export type ToastType = 'success' | 'error' | 'info';
+
+export interface ToastProps {
+  message: string;
+  type: ToastType;
+  onClose: () => void;
+}
 
 export const Toast: React.FC<ToastProps> = ({ message, type, onClose }) => {
   useEffect(() => { const timer = setTimeout(onClose, 3000); return () => clearTimeout(timer); }, [onClose]);
