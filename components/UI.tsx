@@ -209,27 +209,54 @@ export const BarChart: React.FC<{ data: any[]; height?: number; colorStart?: str
         const isHovered = hoverIdx === idx;
         const displayValue = Math.round(item.value); 
         const barHeight = Math.max(percent, 2);
+        
+        // Deduction check for tooltip: Explicit leave deduction or implicit (Standard > RealBasic)
+        const hasImplicitDeduction = item.details && item.details.base > item.details.realBasic && item.details.deduction === 0;
+        
         return (
           <div key={idx} className="relative flex-1 flex flex-col justify-end items-center group h-full" onMouseEnter={() => setHoverIdx(idx)} onMouseLeave={() => setHoverIdx(null)}>
-            <div className={`absolute bottom-full mb-3 bg-[#0F111A] border border-white/10 px-4 py-3 rounded-xl shadow-[0_0_30px_rgba(0,0,0,0.5)] z-20 pointer-events-none transition-all duration-200 whitespace-nowrap min-w-[180px] ${isHovered ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-2 scale-95'}`}>
+            <div className={`absolute bottom-full mb-3 bg-[#0F111A] border border-white/10 px-4 py-3 rounded-xl shadow-[0_0_30px_rgba(0,0,0,0.5)] z-20 pointer-events-none transition-all duration-200 whitespace-nowrap min-w-[200px] ${isHovered ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-2 scale-95'}`}>
                <div className="text-xs text-nexus-muted mb-2 border-b border-white/5 pb-1">{item.label} 薪资详情</div>
                {item.details ? (
                  <div className="space-y-1 text-xs">
                     {item.details.days !== undefined && item.details.standardDays !== undefined && (
-                        <div className="flex justify-between gap-4 mb-2 bg-white/5 p-1.5 rounded"><span className="text-gray-400">出勤</span><span className="text-white font-mono font-bold">{item.details.days}天 {item.details.days < item.details.standardDays ? <span className="text-red-400 ml-1">(缺{item.details.standardDays - item.details.days}天)</span> : <span className="text-green-400 ml-1">(全勤)</span>}</span></div>
+                        <div className="flex justify-between gap-4 mb-2 bg-white/5 p-1.5 rounded">
+                            <span className="text-gray-400">出勤</span>
+                            {/* If paid days are less than standard days, show gap in red, otherwise full attendance */}
+                            {item.details.days < item.details.standardDays ? (
+                                <span className="text-red-400 font-mono font-bold">{item.details.days}天 (缺{item.details.standardDays - item.details.days}天)</span>
+                            ) : (
+                                <span className="text-green-400 font-mono font-bold">{item.details.days}天 (全勤)</span>
+                            )}
+                        </div>
                     )}
-                    {/* Explicitly show Standard Salary */}
+                    
                     <div className="flex justify-between gap-4">
                         <span className="text-gray-400">标准薪资</span>
                         <span className="text-white font-mono">¥{Math.round(item.details.base).toLocaleString()}</span>
                     </div>
-                    {/* Show Deduction logic: Either explict deduction > 0 OR if implicit gap exists */}
+
+                    {/* Explicit Leave Deduction */}
                     {item.details.deduction > 0 && (
                         <div className="flex justify-between gap-4">
                             <span className="text-red-400">请假扣除</span>
                             <span className="text-red-400 font-mono">-¥{Math.round(item.details.deduction).toLocaleString()}</span>
                         </div>
                     )}
+
+                    {/* Implicit Deduction (Late Join / Partial Month) */}
+                    {hasImplicitDeduction && (
+                        <div className="flex justify-between gap-4">
+                            <span className="text-orange-400">缺勤/未入职扣除</span>
+                            <span className="text-orange-400 font-mono">-¥{Math.round(item.details.base - item.details.realBasic).toLocaleString()}</span>
+                        </div>
+                    )}
+
+                    <div className="flex justify-between gap-4 border-t border-white/5 pt-1 mt-1">
+                        <span className="text-gray-400">实发底薪</span>
+                        <span className="text-white font-mono">¥{Math.round(item.details.realBasic).toLocaleString()}</span>
+                    </div>
+
                     <div className="flex justify-between gap-4"><span className="text-gray-400">绩效奖金</span><span className="text-green-400 font-mono">+¥{Math.round(item.details.bonus).toLocaleString()}</span></div>
                     {item.details.attendanceBonus > 0 && <div className="flex justify-between gap-4"><span className="text-yellow-400">全勤奖</span><span className="text-yellow-400 font-mono">+¥{Math.round(item.details.attendanceBonus).toLocaleString()}</span></div>}
                     
