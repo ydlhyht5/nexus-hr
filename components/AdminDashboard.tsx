@@ -160,13 +160,14 @@ const SalaryRow: React.FC<{
   const monthlyStandardDays = getMonthlyStandardDays(workMonth);
   const potentialWorkDays = isNotJoined ? 0 : calculateActualWorkDays(emp, workMonth);
   const leaveDays = isNotJoined ? 0 : calculateLeaveDaysInMonth(leaveRequests, emp.id, workMonth);
+  
+  // Calculate System Net Work Days (Potential - Leaves)
   const systemNetWorkDays = Math.max(0, potentialWorkDays - leaveDays);
 
   const [sales, setSales] = useState(isNotJoined ? '0' : (existingRecord?.salesAmount?.toString() || ''));
   const [rate, setRate] = useState(isNotJoined ? '0' : (existingRecord?.bonusRate?.toString() || ''));
   
-  // STRICT FIX: Default to '0' unless there is a specific saved manual value.
-  // DO NOT use systemNetWorkDays as a default for the manual input.
+  // Manual Override Input
   const [manualDays, setManualDays] = useState(isNotJoined ? '0' : (existingRecord?.manualWorkDays?.toString() || '0'));
   
   const [attBonus, setAttBonus] = useState(isNotJoined ? '0' : (existingRecord?.attendanceBonus?.toString() || '0'));
@@ -181,7 +182,7 @@ const SalaryRow: React.FC<{
          const rec = salaryRecords.find(r => r.id === `${emp.id}_${payoutMonth}`);
          setSales(rec?.salesAmount?.toString() || '');
          setRate(rec?.bonusRate?.toString() || '');
-         // Ensure manual days state follows DB exactly, defaulting to 0 string
+         // STRICT: Only use manual override if it was explicitly saved. Default display is 0.
          setManualDays(rec?.manualWorkDays?.toString() || '0');
          setAttBonus(rec?.attendanceBonus?.toString() || '0');
      }
@@ -202,30 +203,23 @@ const SalaryRow: React.FC<{
   
   const dailyRate = monthlyStandardDays > 0 ? (baseSalarySetting / monthlyStandardDays) : 0;
   
-  // STRICT CALCULATION RULES:
-  // 1. Leave Deduction = DailyRate * LeaveDays (Calculated separately)
-  // 2. Base Salary = Standard - Leave Deduction (Unless Manual override)
-  
+  // --- STRICT SALARY CALCULATION ---
   const standardSalaryForMonth = isNotJoined ? 0 : baseSalarySetting; 
+  
+  // Leave Deduction (Visible statistic)
   const strictLeaveDeduction = isNotJoined ? 0 : (dailyRate * leaveDays);
   
   let calculatedBaseSalary = 0;
-  let finalLeaveDeduction = 0;
 
   if (manualDaysNum > 0) {
-      // Manual Override: Pay strictly for manual days
+      // Manual Override: Pay strictly for manual days entered
       calculatedBaseSalary = dailyRate * manualDaysNum;
-      // If manual override is active, deduction is technically implicit in the days, but for display 
-      // integrity, we can either set deduction to 0 or calculate the difference.
-      // User asked for STRICT logic: "If has leave, deduction is DailyRate * Days".
-      // But if Manual Days is set, that usually means the admin is fixing the days manually.
-      // We will assume Manual Days overrides the "Standard - Deduction" logic for the Base Amount,
-      // BUT we still track the `strictLeaveDeduction` for the record if possible, or 0.
-      finalLeaveDeduction = 0; 
   } else {
-      // System Logic: Standard - Deduction
-      finalLeaveDeduction = strictLeaveDeduction;
-      calculatedBaseSalary = Math.max(0, standardSalaryForMonth - finalLeaveDeduction);
+      // System Logic: Strictly Day Rate * Actual Worked Days
+      // This correctly handles BOTH leave deductions AND partial month (late joiners)
+      // Example: Joined Nov 10. StandardDays=22. Potential=16. Leaves=0. Net=16.
+      // Salary = DailyRate * 16.
+      calculatedBaseSalary = dailyRate * systemNetWorkDays;
   }
 
   const bonus = salesNum * (rateNum / 100);
@@ -243,10 +237,10 @@ const SalaryRow: React.FC<{
       employeeId: emp.id,
       employeeName: emp.name,
       month: payoutMonth,
-      basicSalary: Math.round(calculatedBaseSalary), // Net Basic
-      manualWorkDays: manualDaysNum, // Should be 0 if not touched
-      standardSalary: Math.round(standardSalaryForMonth), // Standard Gross
-      leaveDeduction: Math.round(finalLeaveDeduction), // Saved explicitly
+      basicSalary: Math.round(calculatedBaseSalary), // Net Basic (Pro-rated)
+      manualWorkDays: manualDaysNum, // 0 if not used
+      standardSalary: Math.round(standardSalaryForMonth), // Full Standard
+      leaveDeduction: Math.round(strictLeaveDeduction), // Explicit Leave Deduction
       salesAmount: salesNum,
       bonusRate: rateNum,
       bonusAmount: Math.round(bonus),
@@ -631,6 +625,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
                 bonus: rec.bonusAmount,
                 attendanceBonus: rec.attendanceBonus,
                 real: rec.totalSalary,
+                realBasic: rec.basicSalary, // Actual Basic Pay
                 days: rec.manualWorkDays || Math.round((rec.basicSalary / (rec.standardSalary || 1)) * stdDays), 
                 standardDays: stdDays 
               };
