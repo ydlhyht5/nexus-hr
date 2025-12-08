@@ -2,7 +2,7 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>NexusHR - 棠灿贸易</title>
     <!-- 使用 Tailwind CDN 保持简单 -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -31,11 +31,21 @@
             animation: {
               'float': 'float 6s ease-in-out infinite',
               'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+              'grow': 'grow 1s ease-out forwards',
+              'draw': 'draw 2s ease-out forwards'
             },
             keyframes: {
               float: {
                 '0%, 100%': { transform: 'translateY(0)' },
                 '50%': { transform: 'translateY(-10px)' },
+              },
+              grow: {
+                '0%': { height: '0%' },
+                '100%': { height: 'var(--height)' }
+              },
+              draw: {
+                '0%': { strokeDasharray: '1000', strokeDashoffset: '1000' },
+                '100%': { strokeDashoffset: '0' }
               }
             }
           }
@@ -52,6 +62,17 @@
       ::-webkit-scrollbar-track { background: #0B0C15; }
       ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
       ::-webkit-scrollbar-thumb:hover { background: #334155; }
+
+      /* Mobile Scaling Optimization */
+      @media (max-width: 640px) {
+        html {
+          font-size: 14px; /* Scale down entire UI to ~87.5% on mobile */
+        }
+        /* Smooth scrolling for mobile */
+        .custom-scrollbar {
+          -webkit-overflow-scrolling: touch;
+        }
+      }
     </style>
   <script type="importmap">
 {
@@ -63,7 +84,8 @@
     "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1",
     "@google/genai": "https://aistudiocdn.com/@google/genai@^1.31.0",
     "lucide-react": "https://aistudiocdn.com/lucide-react@^0.556.0",
-    "pinyin-pro": "https://esm.sh/pinyin-pro@3.18.3"
+    "pinyin-pro": "https://esm.sh/pinyin-pro@3.18.3",
+    "html2canvas": "https://esm.sh/html2canvas@1.4.1"
   }
 }
 </script>
