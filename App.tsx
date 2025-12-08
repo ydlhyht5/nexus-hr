@@ -181,6 +181,12 @@ const App: React.FC = () => {
     loadData();
   };
 
+  const deleteEmployee = async (id: string) => {
+      await db.deleteEmployee(id);
+      setEmployees(prev => prev.filter(e => e.id !== id));
+      loadData();
+  };
+
   const resetPassword = async (id: string) => {
     const target = employees.find(e => e.id === id);
     if (target) {
@@ -367,6 +373,7 @@ const App: React.FC = () => {
           salaryRecords={salaryRecords}
           onAddEmployee={addEmployee}
           onUpdateEmployee={updateEmployee}
+          onDeleteEmployee={deleteEmployee}
           onResetPassword={resetPassword}
           onUpdateLeaveStatus={updateLeaveStatus}
           onSaveSalary={saveSalary}
