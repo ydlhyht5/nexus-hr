@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Employee, Gender, LeaveRequest, LeaveStatus, SalaryRecord } from '../types';
 import { Card, NeonCard, Button, Input, Select, Badge, Modal, ToastContainer, ToastType } from './UI';
 import { generatePinyinInitials } from '../services/geminiService';
-import { UserPlus, Calendar, Check, X, Pencil, Calculator, Save, User, KeyRound, Briefcase, DollarSign, Clock, Trash2 } from 'lucide-react';
+import { UserPlus, Calendar, Check, X, Pencil, Calculator, Save, User, KeyRound, Briefcase, DollarSign, Clock, Trash2, LockKeyhole } from 'lucide-react';
 
 interface AdminDashboardProps {
   employees: Employee[];
@@ -298,10 +298,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
 
     if (newEmp.probationSalary > newEmp.fullSalary) {
-      // Allowed equal now, per requirements
-      // Just ensure not greater strictly if desired, but "probation should be <= full" logic is common.
-      // User said: "试用期工资是应该小于等于转正工资，他俩是可以等值的" -> <= is fine.
-      // So if prob > full, it's an error.
       addToast('试用期工资不得高于转正工资', 'error');
       return;
     }
@@ -407,7 +403,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         <div className="min-h-[600px]">
             {/* 1. EMPLOYEE GRID VIEW */}
             {activeTab === 'employees' && (
-              <div className="space-y-6 animate-in fade-in zoom-in-95 duration-500">
+              <div className="space-y-6">
                   <div className="flex justify-between items-center px-2">
                       <h2 className="text-white font-bold text-lg">全员名单 <span className="text-nexus-muted font-normal text-sm ml-2">({employees.length}人)</span></h2>
                       <Button onClick={() => handleOpenModal()} icon={<UserPlus size={16} />} size="sm">
@@ -467,6 +463,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                       >
                                           <Pencil size={12}/> 编辑
                                       </Button>
+                                      
+                                      <Button 
+                                          variant="secondary" 
+                                          size="sm" 
+                                          className="flex-1 text-xs" 
+                                          title="重置密码"
+                                          onClick={() => {
+                                              if(confirm(`确定要重置 ${emp.name} 的密码为默认密码 (1234) 吗?`)) {
+                                                  onResetPassword(emp.id);
+                                                  addToast('密码已重置', 'info');
+                                              }
+                                          }}
+                                      >
+                                          <LockKeyhole size={12}/> 重置
+                                      </Button>
+
                                       <Button 
                                           variant="danger" 
                                           size="sm" 
@@ -702,7 +714,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   label="性别"
                   options={[
                     { value: Gender.MALE, label: '男' },
-                    { value: Gender.FEMALE, label: '女' }
+                    { value: Gender.FEMALE, label: '女' },
+                    { value: Gender.OTHER, label: '其他' }
                   ]}
                   value={newEmp.gender}
                   onChange={e => setNewEmp({...newEmp, gender: e.target.value as Gender})}
