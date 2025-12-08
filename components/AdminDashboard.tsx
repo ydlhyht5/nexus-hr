@@ -204,9 +204,10 @@ const SalaryRow: React.FC<{
   const dailyRate = monthlyStandardDays > 0 ? (baseSalarySetting / monthlyStandardDays) : 0;
   
   // --- STRICT SALARY CALCULATION ---
+  // If not joined, standard is 0 for UI purposes, but we use baseSalarySetting for rate calc
   const standardSalaryForMonth = isNotJoined ? 0 : baseSalarySetting; 
   
-  // Leave Deduction (Visible statistic)
+  // Leave Deduction Statistic (Reference only, not used for subtraction in new logic)
   const strictLeaveDeduction = isNotJoined ? 0 : (dailyRate * leaveDays);
   
   let calculatedBaseSalary = 0;
@@ -267,7 +268,10 @@ const SalaryRow: React.FC<{
                 {!isNotJoined && (
                     <div className="text-[10px] text-nexus-muted flex flex-col">
                         <span>系统算: {systemNetWorkDays}天</span>
-                        <span className="opacity-70">(应勤{potentialWorkDays} - 请假{leaveDays})</span>
+                        {/* Show tooltip for partial months */}
+                        <span className="opacity-70" title={`本月满勤${monthlyStandardDays}天`}>
+                            (应勤{potentialWorkDays} - 请假{leaveDays})
+                        </span>
                     </div>
                 )}
             </div>
@@ -617,23 +621,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
             if (rec) {
               value = rec.totalSalary;
               const stdDays = getMonthlyStandardDays(displayLabel);
+              const standardSalary = rec.standardSalary || rec.basicSalary || 1;
+
+              // Calculate days based on ratio if no manual days are set
+              // This handles late joiners where basicSalary < standardSalary
+              let calculatedDays = rec.manualWorkDays;
+              if (!calculatedDays && rec.basicSalary !== undefined) {
+                  // e.g. 3636 / 5000 = 0.72. 0.72 * 22 = 16 days.
+                  calculatedDays = Math.round((rec.basicSalary / standardSalary) * stdDays);
+              }
 
               details = {
                 // Standard Salary passed as base
-                base: rec.standardSalary || rec.basicSalary || 0, 
+                base: standardSalary, 
                 deduction: rec.leaveDeduction || 0,
                 bonus: rec.bonusAmount,
                 attendanceBonus: rec.attendanceBonus,
                 real: rec.totalSalary,
                 realBasic: rec.basicSalary, // Actual Basic Pay
-                days: rec.manualWorkDays || Math.round((rec.basicSalary / (rec.standardSalary || 1)) * stdDays), 
+                days: calculatedDays || stdDays, 
                 standardDays: stdDays 
               };
-              
-              if (rec.standardSalary && rec.standardSalary > 0 && rec.basicSalary !== undefined && !rec.manualWorkDays) {
-                  const calculatedDays = Math.round((rec.basicSalary * stdDays) / rec.standardSalary);
-                  details.days = calculatedDays;
-              }
             }
         }
         data.push({
