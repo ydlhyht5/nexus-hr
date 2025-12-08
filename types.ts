@@ -57,7 +57,7 @@ export interface SalaryRecord extends Syncable {
   salesAmount: number;
   bonusRate: number; 
   bonusAmount: number;
-  attendanceBonus?: number; // New: Full attendance bonus
+  attendanceBonus?: number;
   totalSalary: number;
   updatedAt: number;
 }
