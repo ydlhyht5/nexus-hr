@@ -275,8 +275,9 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
                               </div>
                               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs text-nexus-muted">
                                   <div>
+                                      {/* FIXED: Display Standard Salary (configured) instead of Pro-rated */}
                                       <div className="uppercase mb-1">基本工资</div>
-                                      <div className="text-white font-mono">¥{Math.round(sal.basicSalary).toLocaleString()}</div>
+                                      <div className="text-white font-mono">¥{Math.round(sal.standardSalary || sal.basicSalary).toLocaleString()}</div>
                                   </div>
                                   <div>
                                       <div className="uppercase mb-1">销售业绩</div>
