@@ -268,8 +268,10 @@ interface BarChartProps {
       base: number;
       deduction: number;
       bonus: number;
+      attendanceBonus?: number; // ADDED
       real: number;
-      days?: number; // Added days
+      days?: number; 
+      standardDays?: number; // ADDED for absence calc
     }
   }[];
   height?: number;
@@ -296,7 +298,7 @@ export const BarChart: React.FC<BarChartProps> = ({
       {data.map((item, idx) => {
         const percent = (item.value / maxValue) * 100;
         const isHovered = hoverIdx === idx;
-        const displayValue = Math.round(item.value); // INTEGER ROUNDING
+        const displayValue = Math.round(item.value); 
         
         return (
           <div 
@@ -307,17 +309,23 @@ export const BarChart: React.FC<BarChartProps> = ({
           >
             {/* Tooltip */}
             <div 
-              className={`absolute bottom-full mb-3 bg-[#0F111A] border border-white/10 px-4 py-3 rounded-xl shadow-[0_0_30px_rgba(0,0,0,0.5)] z-20 pointer-events-none transition-all duration-200 whitespace-nowrap min-w-[140px] ${isHovered ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-2 scale-95'}`}
+              className={`absolute bottom-full mb-3 bg-[#0F111A] border border-white/10 px-4 py-3 rounded-xl shadow-[0_0_30px_rgba(0,0,0,0.5)] z-20 pointer-events-none transition-all duration-200 whitespace-nowrap min-w-[160px] ${isHovered ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-2 scale-95'}`}
             >
                <div className="text-xs text-nexus-muted mb-2 border-b border-white/5 pb-1">{item.label} 薪资详情</div>
                
                {item.details ? (
                  <div className="space-y-1 text-xs">
-                    {/* Show Working Days if available */}
-                    {item.details.days !== undefined && (
-                        <div className="flex justify-between gap-4 mb-2 bg-white/5 p-1 rounded">
-                            <span className="text-gray-400">计薪天数</span>
-                            <span className="text-white font-mono font-bold">{item.details.days}天</span>
+                    {/* Attendance Info */}
+                    {item.details.days !== undefined && item.details.standardDays !== undefined && (
+                        <div className="flex justify-between gap-4 mb-2 bg-white/5 p-1.5 rounded">
+                            <span className="text-gray-400">出勤</span>
+                            <span className="text-white font-mono font-bold">
+                                {item.details.days}天 
+                                {item.details.days < item.details.standardDays 
+                                    ? <span className="text-red-400 ml-1">(缺{item.details.standardDays - item.details.days}天)</span>
+                                    : <span className="text-green-400 ml-1">(全勤)</span>
+                                }
+                            </span>
                         </div>
                     )}
                     <div className="flex justify-between gap-4">
@@ -334,6 +342,13 @@ export const BarChart: React.FC<BarChartProps> = ({
                       <span className="text-gray-400">绩效奖金</span>
                       <span className="text-green-400 font-mono">+¥{Math.round(item.details.bonus).toLocaleString()}</span>
                     </div>
+                    {/* Attendance Bonus in Tooltip */}
+                    {item.details.attendanceBonus && item.details.attendanceBonus > 0 && (
+                      <div className="flex justify-between gap-4">
+                        <span className="text-yellow-400">全勤奖</span>
+                        <span className="text-yellow-400 font-mono">+¥{Math.round(item.details.attendanceBonus).toLocaleString()}</span>
+                      </div>
+                    )}
                     <div className="border-t border-white/10 my-1 pt-1 flex justify-between gap-4">
                       <span className="text-white font-bold">实际发放</span>
                       <span className="text-nexus-accent font-bold font-mono">¥{Math.round(item.details.real).toLocaleString()}</span>
@@ -347,7 +362,7 @@ export const BarChart: React.FC<BarChartProps> = ({
                <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-[#0F111A]"></div>
             </div>
 
-            {/* Value Label Above Bar (Rounded) */}
+            {/* Value Label */}
             <div 
               className={`absolute bottom-[calc(100%+4px)] text-[10px] font-mono transition-all duration-300 ${isHovered ? 'opacity-100 -translate-y-1 text-white font-bold' : 'opacity-70 text-nexus-muted'}`}
               style={{ bottom: mounted ? `${percent}%` : '0%' }}
@@ -355,14 +370,12 @@ export const BarChart: React.FC<BarChartProps> = ({
               {item.value > 0 ? `¥${displayValue.toLocaleString()}` : ''}
             </div>
 
-            {/* Bar Container for Alignment */}
+            {/* Bar */}
             <div className="w-full h-full flex items-end justify-center">
-                {/* Actual Bar */}
                 <div 
                   className={`w-full max-w-[40px] rounded-t-sm transition-all duration-700 ease-out bg-gradient-to-t ${colorStart} ${colorEnd} relative overflow-hidden ${isHovered ? 'brightness-125 shadow-[0_0_20px_rgba(16,185,129,0.4)]' : 'opacity-80'}`}
                   style={{ height: mounted ? `${Math.max(percent, 2)}%` : '0%' }}
                 >
-                   {/* Shine effect */}
                    <div className="absolute inset-0 bg-gradient-to-b from-white/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                 </div>
             </div>
