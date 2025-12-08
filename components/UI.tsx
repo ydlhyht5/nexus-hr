@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { X, CheckCircle, AlertCircle, Info } from 'lucide-react';
 
 // --- Card (Standard) ---
@@ -27,6 +27,65 @@ export const NeonCard: React.FC<{ children: React.ReactNode; className?: string;
     <div className="absolute inset-0 bg-nexus-accent/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-150 rounded-2xl -z-0"></div>
   </div>
 );
+
+// --- Bar Chart (Web3 Style) ---
+interface BarChartProps {
+  data: { label: string; value: number; subLabel?: string }[];
+  height?: number;
+  colorStart?: string;
+  colorEnd?: string;
+}
+
+export const BarChart: React.FC<BarChartProps> = ({ 
+  data, 
+  height = 200, 
+  colorStart = 'from-emerald-500', 
+  colorEnd = 'to-teal-600' 
+}) => {
+  const maxValue = Math.max(...data.map(d => d.value), 1);
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+
+  return (
+    <div className="w-full flex items-end justify-between gap-2" style={{ height: `${height}px` }}>
+      {data.map((item, idx) => {
+        const percent = (item.value / maxValue) * 100;
+        const isHovered = hoverIdx === idx;
+        
+        return (
+          <div 
+            key={idx} 
+            className="relative flex-1 flex flex-col justify-end group h-full"
+            onMouseEnter={() => setHoverIdx(idx)}
+            onMouseLeave={() => setHoverIdx(null)}
+          >
+            {/* Tooltip */}
+            <div 
+              className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-[#0F111A] border border-white/10 px-3 py-2 rounded-lg shadow-xl z-20 pointer-events-none transition-all duration-200 whitespace-nowrap ${isHovered ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}`}
+            >
+               <div className="text-xs text-nexus-muted">{item.label}</div>
+               <div className="text-sm font-bold text-white font-mono">¥{item.value.toLocaleString()}</div>
+               {item.subLabel && <div className="text-[10px] text-white/50">{item.subLabel}</div>}
+            </div>
+
+            {/* Bar */}
+            <div 
+              className={`w-full rounded-t-lg transition-all duration-500 ease-out bg-gradient-to-t ${colorStart} ${colorEnd} relative overflow-hidden ${isHovered ? 'brightness-125 shadow-[0_0_15px_rgba(16,185,129,0.3)]' : 'opacity-80'}`}
+              style={{ height: `${Math.max(percent, 2)}%` }}
+            >
+               {/* Shine effect */}
+               <div className="absolute inset-0 bg-gradient-to-b from-white/20 to-transparent opacity-50"></div>
+            </div>
+            
+            {/* Label */}
+            <div className="text-[10px] text-center text-nexus-muted mt-2 font-mono truncate px-1">
+              {item.label.split('-')[1] || item.label}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
 
 // --- Button ---
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
