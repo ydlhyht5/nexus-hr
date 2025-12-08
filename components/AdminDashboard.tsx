@@ -596,12 +596,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
               const stdDays = getMonthlyStandardDays(displayLabel);
 
               details = {
-                base: rec.standardSalary || rec.basicSalary,
+                base: rec.basicSalary || 0, // UPDATED: Use PAID BASIC
                 deduction: rec.leaveDeduction || 0,
                 bonus: rec.bonusAmount,
                 attendanceBonus: rec.attendanceBonus,
                 real: rec.totalSalary,
-                days: systemNetWorkDays || Math.round((rec.basicSalary / (rec.standardSalary || 1)) * stdDays), 
+                days: rec.manualWorkDays || Math.round((rec.basicSalary / (rec.standardSalary || 1)) * stdDays), 
                 standardDays: stdDays 
               };
               
