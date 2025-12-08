@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useRef } from 'react';
 import { Employee, LeaveRequest, UserRole, UserSession, LeaveStatus, SalaryRecord } from './types';
-import { Button, Card, Input } from './components/UI';
+import { Button, Card, Input, ToastContainer, ToastType } from './components/UI';
 import { AdminDashboard } from './components/AdminDashboard';
 import { EmployeeDashboard } from './components/EmployeeDashboard';
 import { Lock, User as UserIcon, Shield, Cloud, Wifi, WifiOff, RefreshCw } from 'lucide-react';
@@ -10,6 +11,7 @@ const ADMIN_USER = 'admin';
 const ADMIN_PASS = '8278';
 const EMP_DEFAULT_PASS = '1234';
 const AUTO_APPROVE_MS = 6 * 60 * 60 * 1000; // 6 hours
+const SESSION_KEY = 'nexus_session_v1';
 
 const App: React.FC = () => {
   // --- Global State ---
@@ -17,12 +19,25 @@ const App: React.FC = () => {
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
   const [salaryRecords, setSalaryRecords] = useState<SalaryRecord[]>([]);
   const [isDbReady, setIsDbReady] = useState(false);
-  const [session, setSession] = useState<UserSession | null>(null);
+  
+  // Session Persistence: Initialize from localStorage
+  const [session, setSession] = useState<UserSession | null>(() => {
+    const saved = localStorage.getItem(SESSION_KEY);
+    return saved ? JSON.parse(saved) : null;
+  });
   
   // Sync & Network State
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [isSyncing, setIsSyncing] = useState(false);
+
+  // Toasts State (Lifted up to manage global notifications)
+  const [toasts, setToasts] = useState<{ id: string; message: string; type: ToastType }[]>([]);
+  const addToast = (message: string, type: ToastType) => {
+    const id = Date.now().toString() + Math.random();
+    setToasts(prev => [...prev, { id, message, type }]);
+  };
+  const removeToast = (id: string) => setToasts(prev => prev.filter(t => t.id !== id));
 
   // --- Login State ---
   const [loginId, setLoginId] = useState('');
@@ -78,7 +93,7 @@ const App: React.FC = () => {
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
-    // REAL-TIME POLLING (Every 15s)
+    // REAL-TIME POLLING (Every 15s) to ensure data freshness
     const pollInterval = setInterval(() => {
         loadData();
     }, 15000);
@@ -89,6 +104,44 @@ const App: React.FC = () => {
       clearInterval(pollInterval);
     };
   }, []);
+
+  // --- Notification Logic (Refs to track previous states) ---
+  const prevLeaveRequestsRef = useRef<LeaveRequest[]>([]);
+
+  useEffect(() => {
+    // 1. Admin Notification: New Pending Requests
+    if (session?.role === UserRole.ADMIN) {
+        const prevPendingCount = prevLeaveRequestsRef.current.filter(r => r.status === LeaveStatus.PENDING).length;
+        const currPendingCount = leaveRequests.filter(r => r.status === LeaveStatus.PENDING).length;
+        
+        // Only notify if count INCREASED (new request came in)
+        if (currPendingCount > prevPendingCount) {
+            addToast('收到新的请假申请', 'info');
+        }
+    }
+
+    // 2. Employee Notification: Status Changes
+    if (session?.role === UserRole.EMPLOYEE) {
+        const myPrevRequests = prevLeaveRequestsRef.current.filter(r => r.employeeId === session.id);
+        const myCurrRequests = leaveRequests.filter(r => r.employeeId === session.id);
+
+        myCurrRequests.forEach(curr => {
+            const prev = myPrevRequests.find(p => p.id === curr.id);
+            // Check if status changed from PENDING to APPROVED/REJECTED
+            if (prev && prev.status === LeaveStatus.PENDING && curr.status !== LeaveStatus.PENDING) {
+                if (curr.status === LeaveStatus.APPROVED) {
+                    addToast(`您的请假申请 "${curr.reason}" 已被批准`, 'success');
+                } else if (curr.status === LeaveStatus.REJECTED) {
+                    addToast(`您的请假申请 "${curr.reason}" 被拒绝`, 'error');
+                }
+            }
+        });
+    }
+
+    // Update ref
+    prevLeaveRequestsRef.current = leaveRequests;
+  }, [leaveRequests, session]);
+
 
   const triggerSync = async () => {
     if (pendingSyncCount > 0) {
@@ -121,13 +174,23 @@ const App: React.FC = () => {
 
   // --- Handlers ---
 
+  const saveSession = (sess: UserSession) => {
+      localStorage.setItem(SESSION_KEY, JSON.stringify(sess));
+      setSession(sess);
+  };
+
+  const clearSession = () => {
+      localStorage.removeItem(SESSION_KEY);
+      setSession(null);
+  };
+
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
     // Admin Check
     if (loginId === ADMIN_USER && loginPass === ADMIN_PASS) {
-      setSession({ id: 'admin', role: UserRole.ADMIN, name: '管理员' });
+      saveSession({ id: 'admin', role: UserRole.ADMIN, name: '管理员' });
       return;
     }
 
@@ -138,7 +201,7 @@ const App: React.FC = () => {
         if (emp.isFirstLogin) {
           setShowPasswordChange(true);
         } else {
-          setSession({ id: emp.id, role: UserRole.EMPLOYEE, name: emp.name });
+          saveSession({ id: emp.id, role: UserRole.EMPLOYEE, name: emp.name });
         }
       } else {
         setError('密码错误');
@@ -154,21 +217,20 @@ const App: React.FC = () => {
       setError('密码不能为空');
       return;
     }
-    // No length check required anymore
     
     const targetEmp = employees.find(e => e.id === loginId);
     if (targetEmp) {
       const updatedEmp = { ...targetEmp, password: newPassword, isFirstLogin: false };
       await db.saveEmployee(updatedEmp);
       setEmployees(prev => prev.map(emp => emp.id === loginId ? updatedEmp : emp));
-      setSession({ id: updatedEmp.id, role: UserRole.EMPLOYEE, name: updatedEmp.name });
+      saveSession({ id: updatedEmp.id, role: UserRole.EMPLOYEE, name: updatedEmp.name });
       setShowPasswordChange(false);
       setNewPassword('');
     }
   };
 
   const handleLogout = () => {
-    setSession(null);
+    clearSession();
     setLoginId('');
     setLoginPass('');
     setError('');
@@ -206,7 +268,6 @@ const App: React.FC = () => {
       const updated = { ...target, password: passToSet, isFirstLogin: true };
       await db.saveEmployee(updated);
       setEmployees(prev => prev.map(e => e.id === id ? updated : e));
-      // alert(`${id} 的密码已重置`); // Remove alert as dashboard handles UI
     }
   };
 
@@ -312,6 +373,9 @@ const App: React.FC = () => {
           <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-600/20 rounded-full blur-3xl animate-pulse-slow"></div>
           <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-indigo-600/20 rounded-full blur-3xl animate-pulse-slow" style={{ animationDelay: '2s' }}></div>
         </div>
+        
+        {/* Global Toast Container for Login Screen */}
+        <ToastContainer toasts={toasts} removeToast={removeToast} />
 
         <Card className="w-full max-w-md bg-nexus-card/80 backdrop-blur-md border-white/10 shadow-2xl relative z-10">
           <div className="text-center mb-8">
@@ -377,8 +441,10 @@ const App: React.FC = () => {
     );
   }
 
+  // Lifted ToastContainer to be available globally
   return (
-    <div className="pb-8"> 
+    <div className="pb-8 relative">
+      <ToastContainer toasts={toasts} removeToast={removeToast} />
       {session.role === UserRole.ADMIN ? (
         <AdminDashboard 
           employees={employees}
