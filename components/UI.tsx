@@ -211,6 +211,7 @@ export const BarChart: React.FC<{ data: any[]; height?: number; colorStart?: str
         const barHeight = Math.max(percent, 2);
         
         // Deduction check for tooltip: Explicit leave deduction or implicit (Standard > RealBasic)
+        // If deduction is 0, but Base > RealBasic, it means partial month (late joiner)
         const hasImplicitDeduction = item.details && item.details.base > item.details.realBasic && item.details.deduction === 0;
         
         return (
