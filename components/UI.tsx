@@ -12,7 +12,7 @@ export const Card: React.FC<{ children: React.ReactNode; className?: string }> =
 export const NeonCard: React.FC<{ children: React.ReactNode; className?: string; onClick?: () => void }> = ({ children, className = '', onClick }) => (
   <div 
     onClick={onClick}
-    className={`group relative rounded-2xl p-[1px] bg-gradient-to-br from-white/5 via-white/10 to-transparent hover:from-nexus-accent hover:via-purple-500 hover:to-pink-500 transition-all duration-300 ${onClick ? 'cursor-pointer' : ''} ${className}`}
+    className={`group relative rounded-2xl p-[1px] bg-gradient-to-br from-white/5 via-white/10 to-transparent hover:from-nexus-accent hover:via-purple-500 hover:to-pink-500 transition-all duration-150 ${onClick ? 'cursor-pointer' : ''} ${className}`}
   >
     {/* Inner Background */}
     <div className="bg-[#0B0C15] h-full w-full rounded-2xl p-6 relative z-10 overflow-hidden">
@@ -24,7 +24,7 @@ export const NeonCard: React.FC<{ children: React.ReactNode; className?: string;
     </div>
     
     {/* Glow Effect */}
-    <div className="absolute inset-0 bg-nexus-accent/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-2xl -z-0"></div>
+    <div className="absolute inset-0 bg-nexus-accent/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-150 rounded-2xl -z-0"></div>
   </div>
 );
 
@@ -45,7 +45,7 @@ export const Button: React.FC<ButtonProps> = ({
   icon,
   ...props 
 }) => {
-  const baseStyle = "rounded-xl font-medium transition-all duration-300 transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 relative overflow-hidden";
+  const baseStyle = "rounded-xl font-medium transition-all duration-150 transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 relative overflow-hidden";
   
   const sizes = {
     sm: "px-3 py-1.5 text-xs",
