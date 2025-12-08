@@ -1,10 +1,30 @@
 import React, { useEffect, useState } from 'react';
 import { X, CheckCircle, AlertCircle, Info } from 'lucide-react';
 
-// --- Card ---
+// --- Card (Standard) ---
 export const Card: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = '' }) => (
   <div className={`bg-nexus-card border border-white/5 rounded-2xl p-6 shadow-float backdrop-blur-sm ${className}`}>
     {children}
+  </div>
+);
+
+// --- Neon Card (Web3 Style with Gradient Border) ---
+export const NeonCard: React.FC<{ children: React.ReactNode; className?: string; onClick?: () => void }> = ({ children, className = '', onClick }) => (
+  <div 
+    onClick={onClick}
+    className={`group relative rounded-2xl p-[1px] bg-gradient-to-br from-white/5 via-white/10 to-transparent hover:from-nexus-accent hover:via-purple-500 hover:to-pink-500 transition-all duration-500 ${onClick ? 'cursor-pointer' : ''} ${className}`}
+  >
+    {/* Inner Background */}
+    <div className="bg-[#0B0C15] h-full w-full rounded-2xl p-6 relative z-10 overflow-hidden">
+        {/* Subtle Grid Background */}
+        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 pointer-events-none"></div>
+        <div className="relative z-10 h-full flex flex-col">
+            {children}
+        </div>
+    </div>
+    
+    {/* Glow Effect */}
+    <div className="absolute inset-0 bg-nexus-accent/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl -z-0"></div>
   </div>
 );
 
@@ -75,7 +95,7 @@ export const Input: React.FC<InputProps> = ({ label, error, className = '', ...p
   <div className="flex flex-col gap-1.5 w-full">
     {label && <label className="text-xs font-semibold text-nexus-muted uppercase tracking-wider pl-1">{label}</label>}
     <input
-      className={`bg-nexus-dark/50 border ${error ? 'border-red-500/50' : 'border-white/10'} rounded-xl px-4 py-3 text-sm text-nexus-text placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-nexus-accent/50 focus:border-nexus-accent transition-all ${className}`}
+      className={`bg-nexus-dark/50 border ${error ? 'border-red-500/50' : 'border-white/10'} rounded-xl px-4 py-3 text-sm text-nexus-text placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-nexus-accent/50 focus:border-nexus-accent transition-all ${className}`}
       {...props}
     />
     {error && <span className="text-xs text-red-400 pl-1">{error}</span>}
@@ -93,7 +113,7 @@ export const Select: React.FC<SelectProps> = ({ label, options, className = '', 
     {label && <label className="text-xs font-semibold text-nexus-muted uppercase tracking-wider pl-1">{label}</label>}
     <div className="relative">
       <select
-        className={`bg-nexus-dark/50 border border-white/10 rounded-xl px-4 py-3 text-sm text-nexus-text appearance-none w-full focus:outline-none focus:ring-2 focus:ring-nexus-accent/50 transition-all ${className}`}
+        className={`bg-nexus-dark/50 border border-white/10 rounded-xl px-4 py-3 text-sm text-nexus-text appearance-none w-full focus:outline-none focus:ring-1 focus:ring-nexus-accent/50 transition-all ${className}`}
         {...props}
       >
         {options.map((opt) => (
@@ -151,17 +171,20 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div 
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" 
+        className="absolute inset-0 bg-black/80 backdrop-blur-md transition-opacity duration-300" 
         onClick={onClose}
       />
-      <div className="relative bg-nexus-card border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl transform transition-all animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
-        <div className="flex items-center justify-between p-6 border-b border-white/5">
-          <h3 className="text-xl font-bold text-white tracking-tight">{title}</h3>
-          <button onClick={onClose} className="text-nexus-muted hover:text-white transition-colors">
-            <X size={20} />
+      <div className="relative bg-[#0F111A] border border-white/10 rounded-2xl w-full max-w-2xl shadow-2xl transform transition-all animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
+        <div className="flex items-center justify-between p-6 border-b border-white/5 bg-gradient-to-r from-white/5 to-transparent">
+          <h3 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
+            <span className="w-1 h-6 bg-nexus-accent rounded-full"></span>
+            {title}
+          </h3>
+          <button onClick={onClose} className="text-nexus-muted hover:text-white transition-colors bg-white/5 hover:bg-white/10 p-1.5 rounded-lg">
+            <X size={18} />
           </button>
         </div>
-        <div className="p-6 overflow-y-auto custom-scrollbar">
+        <div className="p-8 overflow-y-auto custom-scrollbar">
           {children}
         </div>
         {footer && (
@@ -196,9 +219,9 @@ export const Toast: React.FC<ToastProps> = ({ message, type, onClose }) => {
   };
 
   const bgStyles = {
-    success: "bg-nexus-card border-green-500/20 shadow-[0_0_15px_rgba(16,185,129,0.1)]",
-    error: "bg-nexus-card border-red-500/20 shadow-[0_0_15px_rgba(239,68,68,0.1)]",
-    info: "bg-nexus-card border-blue-500/20 shadow-[0_0_15px_rgba(59,130,246,0.1)]"
+    success: "bg-[#0F111A] border-green-500/20 shadow-[0_0_15px_rgba(16,185,129,0.1)]",
+    error: "bg-[#0F111A] border-red-500/20 shadow-[0_0_15px_rgba(239,68,68,0.1)]",
+    info: "bg-[#0F111A] border-blue-500/20 shadow-[0_0_15px_rgba(59,130,246,0.1)]"
   };
 
   return (
