@@ -51,12 +51,13 @@ export interface SalaryRecord extends Syncable {
   employeeName: string;
   month: string; // YYYY-MM
   basicSalary: number;
-  manualWorkDays?: number; // Manual override for work days
-  standardSalary?: number; // Theoretical full salary for the period
-  leaveDeduction?: number; // Amount deducted due to leave
+  manualWorkDays?: number; // New field for manual override
+  standardSalary?: number;
+  leaveDeduction?: number;
   salesAmount: number;
   bonusRate: number; 
   bonusAmount: number;
+  attendanceBonus?: number; // New: Full attendance bonus
   totalSalary: number;
   updatedAt: number;
 }
