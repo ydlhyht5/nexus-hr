@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Employee, Gender, LeaveRequest, LeaveStatus, SalaryRecord } from '../types';
 import { Card, NeonCard, Button, Input, Select, Badge, Modal, ToastContainer, ToastType } from './UI';
 import { generatePinyinInitials } from '../services/geminiService';
-import { UserPlus, Calendar, Check, X, Pencil, Calculator, Save, User, KeyRound, Briefcase, DollarSign, Clock, Trash2, LockKeyhole } from 'lucide-react';
+import { UserPlus, Calendar, Check, X, Pencil, Calculator, Save, User, KeyRound, Briefcase, DollarSign, Clock, Trash2, LockKeyhole, AlertTriangle } from 'lucide-react';
 
 interface AdminDashboardProps {
   employees: Employee[];
@@ -58,13 +58,18 @@ const SalaryRow: React.FC<{
   const isNotJoined = status === 'NOT_JOINED';
   const basicSalary = isNotJoined ? 0 : (status === 'PROBATION' ? emp.probationSalary : emp.fullSalary);
 
-  const [sales, setSales] = useState(existingRecord?.salesAmount?.toString() || '');
-  const [rate, setRate] = useState(existingRecord?.bonusRate?.toString() || '');
+  const [sales, setSales] = useState(isNotJoined ? '0' : (existingRecord?.salesAmount?.toString() || ''));
+  const [rate, setRate] = useState(isNotJoined ? '0' : (existingRecord?.bonusRate?.toString() || ''));
   
   useEffect(() => {
      const rec = salaryRecords.find(r => r.id === `${emp.id}_${selectedMonth}`);
-     setSales(rec?.salesAmount?.toString() || '');
-     setRate(rec?.bonusRate?.toString() || '');
+     if (getSalaryStatus(emp, selectedMonth) === 'NOT_JOINED') {
+         setSales('0');
+         setRate('0');
+     } else {
+         setSales(rec?.salesAmount?.toString() || '');
+         setRate(rec?.bonusRate?.toString() || '');
+     }
   }, [selectedMonth, salaryRecords, emp.id]);
 
   const salesNum = parseFloat(sales) || 0;
@@ -123,7 +128,7 @@ const SalaryRow: React.FC<{
         )}
       </td>
       <td className="p-4">
-        <div className={`flex items-center gap-1 bg-black/20 rounded-lg p-1 border border-white/5 focus-within:border-nexus-accent/50 transition-colors w-28 ${isNotJoined ? 'pointer-events-none' : ''}`}>
+        <div className={`flex items-center gap-1 bg-black/20 rounded-lg p-1 border border-white/5 focus-within:border-nexus-accent/50 transition-colors w-28 ${isNotJoined ? 'pointer-events-none opacity-50' : ''}`}>
            <span className="text-nexus-muted text-xs pl-1">¥</span>
            <input 
               type="number" 
@@ -139,7 +144,7 @@ const SalaryRow: React.FC<{
         </div>
       </td>
       <td className="p-4">
-        <div className={`flex items-center gap-1 bg-black/20 rounded-lg p-1 border border-white/5 focus-within:border-nexus-accent/50 transition-colors w-20 ${isNotJoined ? 'pointer-events-none' : ''}`}>
+        <div className={`flex items-center gap-1 bg-black/20 rounded-lg p-1 border border-white/5 focus-within:border-nexus-accent/50 transition-colors w-20 ${isNotJoined ? 'pointer-events-none opacity-50' : ''}`}>
            <input 
               type="number" 
               className="bg-transparent border-none text-sm text-white focus:ring-0 w-full outline-none p-0 text-center"
@@ -206,6 +211,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   const [resetTargetId, setResetTargetId] = useState<string | null>(null);
   const [newResetPassword, setNewResetPassword] = useState('');
+
+  // -- Delete Confirm State --
+  const [deleteTarget, setDeleteTarget] = useState<{id: string, name: string} | null>(null);
   
   const [newEmp, setNewEmp] = useState({
     name: '',
@@ -314,11 +322,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       return;
     }
 
-    if (newEmp.probationSalary > newEmp.fullSalary) {
-      addToast('试用期工资不得高于转正工资', 'error');
-      return;
-    }
-
     if (editingId) {
       const original = employees.find(e => e.id === editingId);
       if (original) {
@@ -361,6 +364,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       onResetPassword(resetTargetId, newResetPassword);
       addToast('密码已重置', 'success');
       setIsResetModalOpen(false);
+  };
+  
+  // --- Delete Logic ---
+  const handleConfirmDelete = () => {
+      if (deleteTarget) {
+          onDeleteEmployee(deleteTarget.id);
+          addToast(`${deleteTarget.name} 已被删除`, 'info');
+          setDeleteTarget(null);
+      }
   };
 
   const handleReject = (id: string) => {
@@ -514,12 +526,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                           size="sm" 
                                           className="text-xs px-3" 
                                           title="删除员工"
-                                          onClick={() => {
-                                              if(confirm(`警告：确定删除 ${emp.name} (工号: ${emp.id}) 吗?\n此操作无法撤销，将删除其所有请假和薪资记录。`)) {
-                                                  onDeleteEmployee(emp.id);
-                                                  addToast('员工已删除', 'info');
-                                              }
-                                          }}
+                                          onClick={() => setDeleteTarget({ id: emp.id, name: emp.name })}
                                       >
                                           <Trash2 size={12}/>
                                       </Button>
@@ -826,6 +833,37 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   autoFocus
               />
           </div>
+      </Modal>
+
+      {/* --- DELETE CONFIRMATION MODAL --- */}
+      <Modal
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        title="删除员工确认"
+        footer={
+           <div className="flex gap-4">
+             <Button variant="ghost" onClick={() => setDeleteTarget(null)} className="flex-1">取消</Button>
+             <Button variant="danger" onClick={handleConfirmDelete} className="flex-1 bg-red-600 hover:bg-red-500 text-white shadow-lg shadow-red-500/30">确认彻底删除</Button>
+           </div>
+        }
+      >
+         <div className="text-center space-y-4">
+             <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto border border-red-500/20 shadow-[0_0_20px_rgba(239,68,68,0.2)]">
+                <AlertTriangle size={32} className="text-red-500" />
+             </div>
+             <div>
+                <h4 className="text-xl font-bold text-white mb-2">危险操作警告</h4>
+                <p className="text-nexus-muted text-sm">
+                   您确定要彻底删除 <strong className="text-white text-lg">{deleteTarget?.name}</strong> (工号: {deleteTarget?.id}) 吗？
+                </p>
+             </div>
+             <div className="bg-red-950/30 border border-red-900/50 p-4 rounded-xl text-left text-sm text-red-200/80">
+                <ul className="list-disc pl-4 space-y-1">
+                   <li>此操作<strong className="text-red-400">无法撤销</strong>。</li>
+                   <li>该员工的入职档案、请假记录、薪资历史将全部被永久移除。</li>
+                </ul>
+             </div>
+         </div>
       </Modal>
 
     </div>
