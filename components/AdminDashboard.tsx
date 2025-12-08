@@ -449,6 +449,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setGeneratedId(`${initials}${dateSuffix}`);
   };
 
+  // FIX: Removed newEmp.name from dependency to prevent re-render during typing
   useEffect(() => {
       if (isModalOpen && !editingId) {
           triggerIdGeneration();
