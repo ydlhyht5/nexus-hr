@@ -146,6 +146,11 @@ const SalaryRow: React.FC<{
   
   const dailyRate = baseRate / 24;
   const calculatedBaseSalary = isNotJoined ? 0 : (dailyRate * finalPayableDays);
+  
+  // Reporting fields
+  const standardSalaryForMonth = isNotJoined ? 0 : (dailyRate * standardPayableDays);
+  const leaveDeductionAmount = isNotJoined ? 0 : (dailyRate * leaveDays);
+
   const bonus = salesNum * (rateNum / 100);
   const total = calculatedBaseSalary + bonus;
 
@@ -163,6 +168,8 @@ const SalaryRow: React.FC<{
       month: payoutMonth,
       basicSalary: calculatedBaseSalary, 
       manualWorkDays: manualDaysNum, // Save the override
+      standardSalary: standardSalaryForMonth, // Theoretical full base
+      leaveDeduction: manualDaysNum > 0 ? 0 : leaveDeductionAmount, // Only count specific leave deduction if using system calc
       salesAmount: salesNum,
       bonusRate: rateNum,
       bonusAmount: bonus,
@@ -483,18 +490,29 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
         const monthStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
         let value = 0;
+        let details = undefined;
+
         if (targetEmpId === 'all') {
             value = salaryRecords
                 .filter(r => r.month === monthStr)
                 .reduce((acc, r) => acc + r.totalSalary, 0);
         } else {
             const rec = salaryRecords.find(r => r.month === monthStr && r.employeeId === targetEmpId);
-            value = rec ? rec.totalSalary : 0;
+            if (rec) {
+              value = rec.totalSalary;
+              details = {
+                base: rec.standardSalary || rec.basicSalary, // Use standard if available, else basic
+                deduction: rec.leaveDeduction || 0,
+                bonus: rec.bonusAmount,
+                real: rec.totalSalary
+              };
+            }
         }
         data.push({
             label: monthStr,
             value: value,
-            subLabel: targetEmpId === 'all' ? '公司总支出' : '个人收入'
+            subLabel: targetEmpId === 'all' ? '公司总支出' : '个人收入',
+            details: details
         });
     }
     return data;
