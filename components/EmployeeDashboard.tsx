@@ -1,7 +1,6 @@
-
 import React, { useState } from 'react';
 import { Employee, LeaveRequest, LeaveStatus, SalaryRecord } from '../types';
-import { Card, Button, Input, Badge } from './UI';
+import { Card, Button, Input, Badge, CustomDatePicker } from './UI';
 import { User, Calendar, Clock, DollarSign, LogOut, Briefcase } from 'lucide-react';
 
 interface EmployeeDashboardProps {
@@ -218,19 +217,15 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
                  </h2>
                  <form onSubmit={handleSubmit} className="space-y-6">
                     <div className="grid grid-cols-2 gap-6">
-                      <Input 
-                        type="date" 
+                      <CustomDatePicker 
                         label="开始日期" 
                         value={leaveForm.startDate}
-                        onChange={e => setLeaveForm({...leaveForm, startDate: e.target.value})}
-                        required
+                        onChange={val => setLeaveForm({...leaveForm, startDate: val})}
                       />
-                      <Input 
-                        type="date" 
+                      <CustomDatePicker 
                         label="结束日期" 
                         value={leaveForm.endDate}
-                        onChange={e => setLeaveForm({...leaveForm, endDate: e.target.value})}
-                        required
+                        onChange={val => setLeaveForm({...leaveForm, endDate: val})}
                       />
                     </div>
 
