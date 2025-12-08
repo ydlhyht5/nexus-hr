@@ -189,13 +189,14 @@ const App: React.FC = () => {
       loadData();
   };
 
-  const resetPassword = async (id: string) => {
+  const resetPassword = async (id: string, newPass?: string) => {
     const target = employees.find(e => e.id === id);
     if (target) {
-      const updated = { ...target, password: EMP_DEFAULT_PASS, isFirstLogin: true };
+      const passToSet = newPass || EMP_DEFAULT_PASS;
+      const updated = { ...target, password: passToSet, isFirstLogin: true };
       await db.saveEmployee(updated);
       setEmployees(prev => prev.map(e => e.id === id ? updated : e));
-      alert(`${id} 的密码已重置为 ${EMP_DEFAULT_PASS}`);
+      // alert(`${id} 的密码已重置`); // Remove alert as dashboard handles UI
     }
   };
 
