@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Employee, LeaveRequest, LeaveStatus, SalaryRecord } from '../types';
-import { Card, Button, Input, Badge, CustomDatePicker, CustomMonthPicker, LineChart } from './UI';
+import { Card, Button, Input, Badge, CustomDatePicker, CustomMonthPicker, BarChart, UI as GlobalUI } from './UI';
 import { User, Calendar, Clock, DollarSign, LogOut, Briefcase, Download, TrendingUp } from 'lucide-react';
 import html2canvas from 'html2canvas';
 
@@ -145,15 +145,43 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
         const displayLabel = getPreviousMonth(payoutMonthStr);
         
         let value = 0;
-        
+        let details = undefined;
+
         const rec = salaryRecords.find(r => r.month === payoutMonthStr && r.employeeId === employee.id);
         if (rec) {
             value = rec.totalSalary;
+            
+            // Calculate details for tooltip
+            const stdSalary = rec.standardSalary || rec.basicSalary;
+            const basic = rec.basicSalary;
+            // SMART DEDUCTION CALC: If record says 0 deduction, but standard > basic, assume the difference is deduction
+            const deduction = rec.leaveDeduction || (stdSalary > basic ? stdSalary - basic : 0);
+            
+            // Standard Days for the work month
+            const stdDays = getMonthlyStandardDays(displayLabel);
+            
+            // Estimate days if not manual
+            let days = rec.manualWorkDays;
+            if (!days && stdSalary > 0) {
+                days = Math.round((basic / stdSalary) * stdDays);
+            }
+
+            details = {
+                base: stdSalary, // Always show standard base in breakdown
+                deduction: deduction,
+                bonus: rec.bonusAmount,
+                attendanceBonus: rec.attendanceBonus,
+                real: rec.totalSalary,
+                days: days,
+                standardDays: stdDays
+            };
         }
         
         data.push({
             label: displayLabel, 
-            value: Math.round(value)
+            value: Math.round(value),
+            subLabel: '个人收入',
+            details: details
         });
     }
     return data;
@@ -182,6 +210,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
 
   return (
     <div className="min-h-screen bg-nexus-dark text-nexus-text p-4 md:p-8 flex justify-center">
+      <GlobalUI />
       <div className="max-w-5xl w-full">
         <header className="flex justify-between items-center mb-8">
           <div className="flex items-center gap-3">
@@ -482,7 +511,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
                     </div>
                  </Card>
 
-                 {/* Trend Chart (Switched to LineChart) */}
+                 {/* Trend Chart (Switched to BarChart) */}
                  <Card>
                     <div className="flex justify-between items-center mb-6">
                         <h3 className="text-lg font-bold flex items-center gap-2">
@@ -493,8 +522,8 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
                             <button onClick={() => setChartPeriod(12)} className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${chartPeriod === 12 ? 'bg-nexus-accent text-white' : 'text-nexus-muted hover:text-white'}`}>最近一年</button>
                         </div>
                     </div>
-                    {/* UPDATED: Using LineChart as requested */}
-                    <LineChart data={getChartData(chartPeriod)} height={250} />
+                    {/* Using BarChart for consistency */}
+                    <BarChart data={getChartData(chartPeriod)} height={250} />
                  </Card>
                </div>
              )}
