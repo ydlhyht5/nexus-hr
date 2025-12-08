@@ -185,7 +185,11 @@ const App: React.FC = () => {
 
   const deleteEmployee = async (id: string) => {
       await db.deleteEmployee(id);
+      // Update state: remove employee and leaves, BUT KEEP SALARY RECORDS for reports
       setEmployees(prev => prev.filter(e => e.id !== id));
+      setLeaveRequests(prev => prev.filter(req => req.employeeId !== id));
+      // setSalaryRecords(prev => prev.filter(rec => rec.employeeId !== id)); // COMMENTED OUT TO KEEP HISTORY
+      
       loadData();
   };
 
