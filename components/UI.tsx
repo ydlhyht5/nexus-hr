@@ -65,7 +65,17 @@ export const Avatar: React.FC<AvatarProps> = ({ name, size = 'md', selected, onC
 
 // --- Bar Chart (Web3 Style V2) ---
 interface BarChartProps {
-  data: { label: string; value: number; subLabel?: string }[];
+  data: { 
+    label: string; 
+    value: number; 
+    subLabel?: string;
+    details?: {
+      base: number;
+      deduction: number;
+      bonus: number;
+      real: number;
+    }
+  }[];
   height?: number;
   colorStart?: string;
   colorEnd?: string;
@@ -86,7 +96,7 @@ export const BarChart: React.FC<BarChartProps> = ({
   }, []);
 
   return (
-    <div className="w-full flex items-end justify-between gap-2 px-2" style={{ height: `${height}px` }}>
+    <div className="w-full flex items-end justify-between gap-2 px-2 pt-6" style={{ height: `${height}px` }}>
       {data.map((item, idx) => {
         const percent = (item.value / maxValue) * 100;
         const isHovered = hoverIdx === idx;
@@ -100,13 +110,45 @@ export const BarChart: React.FC<BarChartProps> = ({
           >
             {/* Tooltip */}
             <div 
-              className={`absolute bottom-full mb-3 bg-[#0F111A] border border-white/10 px-3 py-2 rounded-lg shadow-xl z-20 pointer-events-none transition-all duration-200 whitespace-nowrap ${isHovered ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-2 scale-95'}`}
+              className={`absolute bottom-full mb-3 bg-[#0F111A] border border-white/10 px-4 py-3 rounded-xl shadow-[0_0_30px_rgba(0,0,0,0.5)] z-20 pointer-events-none transition-all duration-200 whitespace-nowrap min-w-[140px] ${isHovered ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-2 scale-95'}`}
             >
-               <div className="text-xs text-nexus-muted mb-0.5">{item.label}</div>
-               <div className="text-lg font-bold text-white font-mono leading-none">¥{item.value.toLocaleString()}</div>
-               {item.subLabel && <div className="text-[10px] text-white/50 mt-1">{item.subLabel}</div>}
+               <div className="text-xs text-nexus-muted mb-2 border-b border-white/5 pb-1">{item.label} 薪资详情</div>
+               
+               {item.details ? (
+                 <div className="space-y-1 text-xs">
+                    <div className="flex justify-between gap-4">
+                      <span className="text-gray-400">应发底薪</span>
+                      <span className="text-white font-mono">¥{item.details.base.toLocaleString()}</span>
+                    </div>
+                    {item.details.deduction > 0 && (
+                      <div className="flex justify-between gap-4">
+                        <span className="text-red-400">请假扣除</span>
+                        <span className="text-red-400 font-mono">-¥{item.details.deduction.toLocaleString()}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between gap-4">
+                      <span className="text-gray-400">绩效奖金</span>
+                      <span className="text-green-400 font-mono">+¥{item.details.bonus.toLocaleString()}</span>
+                    </div>
+                    <div className="border-t border-white/10 my-1 pt-1 flex justify-between gap-4">
+                      <span className="text-white font-bold">实际发放</span>
+                      <span className="text-nexus-accent font-bold font-mono">¥{item.details.real.toLocaleString()}</span>
+                    </div>
+                 </div>
+               ) : (
+                 <div className="text-lg font-bold text-white font-mono leading-none">¥{item.value.toLocaleString()}</div>
+               )}
+               
                {/* Tooltip Arrow */}
                <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-[#0F111A]"></div>
+            </div>
+
+            {/* Value Label Above Bar */}
+            <div 
+              className={`absolute bottom-[calc(100%+4px)] text-[10px] font-mono transition-all duration-300 ${isHovered ? 'opacity-100 -translate-y-1 text-white font-bold' : 'opacity-70 text-nexus-muted'}`}
+              style={{ bottom: mounted ? `${percent}%` : '0%' }}
+            >
+              {item.value > 0 ? `¥${(item.value).toLocaleString()}` : ''}
             </div>
 
             {/* Bar Container for Alignment */}
