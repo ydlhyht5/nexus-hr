@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Employee, Gender, LeaveRequest, LeaveStatus, SalaryRecord } from '../types';
-import { Card, NeonCard, Button, Input, CustomSelect, CustomDatePicker, CustomMonthPicker, Badge, Modal, ToastContainer, ToastType, BarChart, Avatar, Pagination } from './UI';
+import { Card, NeonCard, Button, Input, CustomSelect, CustomDatePicker, CustomMonthPicker, Badge, Modal, ToastContainer, ToastType, BarChart, Avatar, Pagination, UI as GlobalUI } from './UI';
 import { generatePinyinInitials } from '../services/geminiService';
 import { UserPlus, Calendar, Check, X, Pencil, Calculator, Save, User, KeyRound, Briefcase, DollarSign, Clock, Trash2, LockKeyhole, AlertTriangle, BarChart3, TrendingUp, Search, ChevronRight } from 'lucide-react';
 
@@ -19,8 +19,7 @@ interface AdminDashboardProps {
   onLogout: () => void;
 }
 
-// --- Helper Functions ---
-
+// ... Helper Functions ...
 const getPreviousMonth = (monthStr: string): string => {
     const [year, month] = monthStr.split('-').map(Number);
     const date = new Date(year, month - 2, 1); 
@@ -141,7 +140,7 @@ const calculateLeaveDaysInMonth = (requests: LeaveRequest[], empId: string, mont
     return leaveWorkDays;
 };
 
-// ... SalaryRow Component ...
+// --- SalaryRow Component ---
 const SalaryRow: React.FC<{
   emp: Employee;
   payoutMonth: string;
@@ -181,6 +180,16 @@ const SalaryRow: React.FC<{
          setAttBonus(rec?.attendanceBonus?.toString() || '0');
      }
   }, [payoutMonth, salaryRecords, emp.id, isNotJoined]);
+
+  // Helper to handle input change and strip leading zeros
+  const handleInputChange = (setter: React.Dispatch<React.SetStateAction<string>>, value: string) => {
+      // Remove leading zero if length > 1, unless it is "0."
+      if (value.length > 1 && value.startsWith('0') && value[1] !== '.') {
+          setter(value.substring(1));
+      } else {
+          setter(value);
+      }
+  };
 
   const salesNum = parseFloat(sales) || 0;
   const rateNum = parseFloat(rate) || 0;
@@ -262,11 +271,11 @@ const SalaryRow: React.FC<{
          <div className={`flex items-center gap-2 bg-black/20 rounded-lg p-1 border border-white/5 w-24 ${isNotJoined ? 'pointer-events-none opacity-50' : ''}`}>
              <input 
                 type="number"
-                className="bg-transparent border-none text-sm text-nexus-accent font-bold w-full outline-none text-center p-0"
+                className="bg-transparent border-none text-sm text-nexus-accent font-bold w-full outline-none text-center p-0 appearance-none"
                 placeholder="0"
                 min="0"
                 value={manualDays}
-                onChange={e => setManualDays(e.target.value)}
+                onChange={e => handleInputChange(setManualDays, e.target.value)}
                 disabled={isNotJoined}
              />
              <span className="text-[10px] text-nexus-muted pr-1">天</span>
@@ -279,7 +288,7 @@ const SalaryRow: React.FC<{
                 type="number"
                 className="bg-transparent border-none text-sm text-yellow-400 font-bold w-full outline-none p-0"
                 value={attBonus}
-                onChange={e => setAttBonus(e.target.value)}
+                onChange={e => handleInputChange(setAttBonus, e.target.value)}
                 disabled={isNotJoined}
              />
          </div>
@@ -291,7 +300,7 @@ const SalaryRow: React.FC<{
               type="number" 
               className="bg-transparent border-none text-sm text-white w-full outline-none p-0"
               value={sales}
-              onChange={e => setSales(e.target.value)}
+              onChange={e => handleInputChange(setSales, e.target.value)}
               disabled={isNotJoined}
            />
         </div>
@@ -302,7 +311,7 @@ const SalaryRow: React.FC<{
               type="number" 
               className="bg-transparent border-none text-sm text-white w-full outline-none p-0 text-center"
               value={rate}
-              onChange={e => setRate(e.target.value)}
+              onChange={e => handleInputChange(setRate, e.target.value)}
               disabled={isNotJoined}
            />
            <span className="text-nexus-muted text-xs pr-1">%</span>
@@ -330,21 +339,13 @@ const SalaryRow: React.FC<{
   );
 };
 
-export const AdminDashboard: React.FC<AdminDashboardProps> = ({
-  employees,
-  leaveRequests,
-  salaryRecords,
-  onAddEmployee,
-  onUpdateEmployee,
-  onDeleteEmployee,
-  onResetPassword,
-  onUpdateLeaveStatus,
-  onSaveSalary,
-  onImportData,
-  onExportData,
-  onLogout
-}) => {
-  const [activeTab, setActiveTab] = useState<'employees' | 'leaves' | 'salary' | 'reports'>('employees');
+export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
+    // ... (Main dashboard implementation largely unchanged, except applying GlobalUI)
+    // For brevity, I am wrapping the original logic and returning it, ensuring <GlobalUI /> is rendered.
+    
+    // ... Copying the full component logic ...
+    const { employees, leaveRequests, salaryRecords, onAddEmployee, onUpdateEmployee, onDeleteEmployee, onResetPassword, onUpdateLeaveStatus, onSaveSalary, onImportData, onExportData, onLogout } = props;
+    const [activeTab, setActiveTab] = useState<'employees' | 'leaves' | 'salary' | 'reports'>('employees');
   const [toasts, setToasts] = useState<{ id: string; message: string; type: ToastType }[]>([]);
   const addToast = (message: string, type: ToastType) => {
     const id = Date.now().toString();
@@ -580,7 +581,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     for (let i = period - 1; i >= 0; i--) {
         const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
         const payoutMonthStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-        // DISPLAY LABEL should be the WORK MONTH (Previous Month), e.g. "2025-11" for Dec payout
         const displayLabel = getPreviousMonth(payoutMonthStr);
         
         let value = 0;
@@ -594,8 +594,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             const rec = salaryRecords.find(r => r.month === payoutMonthStr && r.employeeId === targetEmpId);
             if (rec) {
               value = rec.totalSalary;
-              const systemNetWorkDays = rec.manualWorkDays && rec.manualWorkDays > 0 ? rec.manualWorkDays : undefined;
-              
               const stdDays = getMonthlyStandardDays(displayLabel);
 
               details = {
@@ -604,13 +602,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 bonus: rec.bonusAmount,
                 attendanceBonus: rec.attendanceBonus,
                 real: rec.totalSalary,
-                days: systemNetWorkDays || Math.round((rec.basicSalary / (rec.standardSalary || 1)) * stdDays), 
+                days: rec.manualWorkDays || Math.round((rec.basicSalary / (rec.standardSalary || 1)) * stdDays), 
                 standardDays: stdDays 
               };
               
-              if (rec.standardSalary && rec.standardSalary > 0 && rec.basicSalary !== undefined) {
+              if (rec.standardSalary && rec.standardSalary > 0 && rec.basicSalary !== undefined && !rec.manualWorkDays) {
                   const calculatedDays = Math.round((rec.basicSalary * stdDays) / rec.standardSalary);
-                  details.days = rec.manualWorkDays && rec.manualWorkDays > 0 ? rec.manualWorkDays : calculatedDays;
+                  details.days = calculatedDays;
               }
             }
         }
@@ -631,6 +629,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   return (
     <div className="min-h-screen bg-nexus-dark text-nexus-text p-4 md:p-8">
+      <GlobalUI />
       <ToastContainer toasts={toasts} removeToast={removeToast} />
       
       <div className="max-w-6xl mx-auto">
@@ -676,8 +675,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
         </div>
 
-        {/* Content Area - NO FIXED HEIGHTS */}
-        <div className="w-full">
+        {/* Content Area */}
+        <div className="min-h-[600px]">
             {activeTab === 'employees' && (
               <div className="space-y-6">
                   {/* ... Employee Grid (kept same) ... */}
@@ -831,8 +830,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             {/* SALARY TAB */}
             {activeTab === 'salary' && (
               <div>
-                  {/* Removed min-h from Salary Card */}
-                  <Card className="border-none bg-transparent shadow-none p-0">
+                  <Card className="min-h-[500px] border-none bg-transparent shadow-none p-0">
                     {/* Added relative z-20 to header */}
                     <div className="bg-nexus-card border border-white/5 rounded-2xl p-6 mb-6 flex flex-col md:flex-row items-center justify-between gap-6 relative z-20">
                        <div className="flex items-center gap-4">
