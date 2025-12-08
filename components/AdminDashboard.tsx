@@ -447,11 +447,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setGeneratedId(`${initials}${dateSuffix}`);
   };
 
+  // FIX: Removed newEmp.name from dependency to prevent re-render during typing
   useEffect(() => {
       if (isModalOpen && !editingId) {
           triggerIdGeneration();
       }
-  }, [newEmp.joinDate, newEmp.name]);
+  }, [newEmp.joinDate]);
 
   const handleOpenModal = (emp?: Employee) => {
     if (emp) {
@@ -677,7 +678,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         <div className="min-h-[600px]">
             {activeTab === 'employees' && (
               <div className="space-y-6">
-                  {/* ... Employee Grid (kept same) ... */}
+                  {/* ... Employee Grid ... */}
                   <div className="flex justify-between items-center px-2">
                       <h2 className="text-white font-bold text-lg">全员名单 <span className="text-nexus-muted font-normal text-sm ml-2">({employees.length}人)</span></h2>
                       <Button onClick={() => handleOpenModal()} icon={<UserPlus size={16} />} size="sm">
@@ -739,7 +740,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
             )}
 
-            {/* LEAVES TAB (UPDATED) */}
+            {/* LEAVES TAB */}
             {activeTab === 'leaves' && (
               <div className="max-w-4xl mx-auto space-y-6">
                  {/* Filter Header - Added relative z-20 */}
@@ -995,7 +996,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                </div>
             )}
             <div className="grid grid-cols-2 gap-6">
-                <Input label="姓名 (中文/英文)" placeholder="如: 李茹 或 Mike" value={newEmp.name} onChange={e => handleNameChange(e.target.value)} autoFocus />
+                <Input label="姓名 (中文/英文)" placeholder="如: 李茹 或 Mike" value={newEmp.name} onChange={e => handleNameChange(e.target.value)} onBlur={triggerIdGeneration} autoFocus />
                 <CustomDatePicker label="入职日期" value={newEmp.joinDate} onChange={(date) => setNewEmp({...newEmp, joinDate: date})} />
             </div>
             <div className="grid grid-cols-2 gap-6">
