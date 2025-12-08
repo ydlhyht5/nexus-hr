@@ -203,7 +203,22 @@ class DatabaseService {
   async saveEmployee(emp: Employee): Promise<void> {
     return this.saveData('employees', '/api/employees', emp);
   }
+  
+  // Cascade Delete
   async deleteEmployee(id: string): Promise<void> {
+      // 1. Delete related leaves
+      const leaves = await this.getLocalAll<LeaveRequest>('leaves');
+      const empLeaves = leaves.filter(l => l.employeeId === id);
+      // Execute in parallel
+      await Promise.all(empLeaves.map(l => this.deleteData('leaves', '/api/leaves', l.id)));
+
+      // 2. DO NOT delete related salaries to preserve company history
+      // The user requested to keep "Company Total" data even if staff is deleted.
+      // const salaries = await this.getLocalAll<SalaryRecord>('salaries');
+      // const empSalaries = salaries.filter(s => s.employeeId === id);
+      // await Promise.all(empSalaries.map(s => this.deleteData('salaries', '/api/salaries', s.id)));
+
+      // 3. Delete employee record
       return this.deleteData('employees', '/api/employees', id);
   }
 
