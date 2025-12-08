@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Employee, Gender, LeaveRequest, LeaveStatus, SalaryRecord } from '../types';
 import { Card, NeonCard, Button, Input, Select, Badge, Modal, ToastContainer, ToastType } from './UI';
 import { generatePinyinInitials } from '../services/geminiService';
-import { UserPlus, Calendar, Check, X, Pencil, Calculator, Save, User, KeyRound, Briefcase, DollarSign, Clock } from 'lucide-react';
+import { UserPlus, Calendar, Check, X, Pencil, Calculator, Save, User, KeyRound, Briefcase, DollarSign, Clock, Trash2 } from 'lucide-react';
 
 interface AdminDashboardProps {
   employees: Employee[];
@@ -10,6 +10,7 @@ interface AdminDashboardProps {
   salaryRecords: SalaryRecord[];
   onAddEmployee: (employee: Employee) => void;
   onUpdateEmployee: (employee: Employee) => void;
+  onDeleteEmployee: (id: string) => void;
   onResetPassword: (id: string) => void;
   onUpdateLeaveStatus: (id: string, status: LeaveStatus, reason?: string) => void;
   onSaveSalary: (record: SalaryRecord) => void;
@@ -19,17 +20,27 @@ interface AdminDashboardProps {
 }
 
 // --- Helper Functions ---
-const getSalaryStatus = (emp: Employee, monthStr: string) => {
+const getSalaryStatus = (emp: Employee, monthStr: string): 'NOT_JOINED' | 'PROBATION' | 'OFFICIAL' => {
   if (!emp.joinDate) return 'PROBATION'; 
-  const join = new Date(emp.joinDate);
-  const selected = new Date(monthStr + '-01');
-  const probationEnd = new Date(join);
-  probationEnd.setMonth(join.getMonth() + emp.probationMonths);
   
-  const selectedTime = selected.getFullYear() * 12 + selected.getMonth();
+  // Calculate Join Month
+  const joinDate = new Date(emp.joinDate);
+  const joinYearMonth = joinDate.getFullYear() * 12 + joinDate.getMonth();
+  
+  // Calculate Selected Month
+  const selectedDate = new Date(monthStr + '-01'); // Ensure day 1 to avoid timezone shifts on day 31
+  const selectedYearMonth = selectedDate.getFullYear() * 12 + selectedDate.getMonth();
+
+  if (selectedYearMonth < joinYearMonth) {
+      return 'NOT_JOINED';
+  }
+
+  // Calculate Probation End Month
+  const probationEnd = new Date(joinDate);
+  probationEnd.setMonth(joinDate.getMonth() + emp.probationMonths);
   const probationTime = probationEnd.getFullYear() * 12 + probationEnd.getMonth();
   
-  return selectedTime < probationTime ? 'PROBATION' : 'OFFICIAL';
+  return selectedYearMonth < probationTime ? 'PROBATION' : 'OFFICIAL';
 };
 
 // --- Salary Row Component ---
@@ -44,7 +55,8 @@ const SalaryRow: React.FC<{
   const existingRecord = salaryRecords.find(r => r.id === recordId);
   
   const status = getSalaryStatus(emp, selectedMonth);
-  const basicSalary = status === 'PROBATION' ? emp.probationSalary : emp.fullSalary;
+  const isNotJoined = status === 'NOT_JOINED';
+  const basicSalary = isNotJoined ? 0 : (status === 'PROBATION' ? emp.probationSalary : emp.fullSalary);
 
   const [sales, setSales] = useState(existingRecord?.salesAmount?.toString() || '');
   const [rate, setRate] = useState(existingRecord?.bonusRate?.toString() || '');
@@ -61,6 +73,7 @@ const SalaryRow: React.FC<{
   const total = basicSalary + bonus;
 
   const handleSave = () => {
+    if (isNotJoined) return;
     const record: SalaryRecord = {
       id: recordId,
       employeeId: emp.id,
@@ -82,7 +95,7 @@ const SalaryRow: React.FC<{
     existingRecord.bonusRate === rateNum;
 
   return (
-    <tr className="border-b border-white/5 hover:bg-white/5 transition-colors group">
+    <tr className={`border-b border-white/5 transition-colors group ${isNotJoined ? 'opacity-40 bg-black/20' : 'hover:bg-white/5'}`}>
       <td className="p-4">
         <div className="font-medium text-white flex items-center gap-2">
             <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-indigo-500 to-violet-500 flex items-center justify-center text-xs font-bold shadow-neon">
@@ -94,11 +107,17 @@ const SalaryRow: React.FC<{
         </div>
       </td>
       <td className="p-4">
-        <Badge status={status} />
-        <div className="text-sm font-mono mt-1 text-nexus-text opacity-70">¥{basicSalary.toLocaleString()}</div>
+        {isNotJoined ? (
+            <span className="text-xs text-nexus-muted">未入职</span>
+        ) : (
+            <>
+                <Badge status={status} />
+                <div className="text-sm font-mono mt-1 text-nexus-text opacity-70">¥{basicSalary.toLocaleString()}</div>
+            </>
+        )}
       </td>
       <td className="p-4">
-        <div className="flex items-center gap-1 bg-black/20 rounded-lg p-1 border border-white/5 focus-within:border-nexus-accent/50 transition-colors w-28">
+        <div className={`flex items-center gap-1 bg-black/20 rounded-lg p-1 border border-white/5 focus-within:border-nexus-accent/50 transition-colors w-28 ${isNotJoined ? 'pointer-events-none' : ''}`}>
            <span className="text-nexus-muted text-xs pl-1">¥</span>
            <input 
               type="number" 
@@ -106,17 +125,19 @@ const SalaryRow: React.FC<{
               placeholder="0"
               value={sales}
               onChange={e => setSales(e.target.value)}
+              disabled={isNotJoined}
            />
         </div>
       </td>
       <td className="p-4">
-        <div className="flex items-center gap-1 bg-black/20 rounded-lg p-1 border border-white/5 focus-within:border-nexus-accent/50 transition-colors w-20">
+        <div className={`flex items-center gap-1 bg-black/20 rounded-lg p-1 border border-white/5 focus-within:border-nexus-accent/50 transition-colors w-20 ${isNotJoined ? 'pointer-events-none' : ''}`}>
            <input 
               type="number" 
               className="bg-transparent border-none text-sm text-white focus:ring-0 w-full outline-none p-0 text-center"
               placeholder="0"
               value={rate}
               onChange={e => setRate(e.target.value)}
+              disabled={isNotJoined}
            />
            <span className="text-nexus-muted text-xs pr-1">%</span>
         </div>
@@ -134,6 +155,7 @@ const SalaryRow: React.FC<{
             size="sm"
             icon={<Save size={14} />}
             className={isSaved ? "opacity-50" : ""}
+            disabled={isNotJoined}
          >
            {isSaved ? "已存" : "保存"}
          </Button>
@@ -148,6 +170,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   salaryRecords,
   onAddEmployee,
   onUpdateEmployee,
+  onDeleteEmployee,
   onResetPassword,
   onUpdateLeaveStatus,
   onSaveSalary,
@@ -170,7 +193,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [newEmp, setNewEmp] = useState({
     name: '',
     jobTitle: '',
-    joinDate: '',
+    joinDate: new Date().toISOString().split('T')[0], // Default to today
     gender: Gender.MALE,
     probationSalary: 0,
     fullSalary: 0,
@@ -188,39 +211,44 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   });
 
-  // Effect: Auto Generate ID (Pinyin + MMDD)
-  useEffect(() => {
-    if (editingId) return; // Do not regen ID for edits
+  // Calculate Status Logic
+  const calculateProbationStatus = () => {
+     if (!newEmp.joinDate) return '-';
+     const start = new Date(newEmp.joinDate);
+     const end = new Date(start);
+     end.setMonth(start.getMonth() + newEmp.probationMonths);
+     
+     if (new Date() >= end) {
+         return <span className="text-green-400 font-bold">已转正</span>;
+     }
+     return end.toLocaleDateString();
+  };
 
-    const generate = async () => {
-        if (!newEmp.name || !newEmp.joinDate) {
-            setGeneratedId('');
-            return;
-        }
+  // Instant ID Generator
+  const triggerIdGeneration = async () => {
+    if (editingId) return; // Do not regen for existing employees
+    if (!newEmp.name || !newEmp.joinDate) return;
 
-        // Logic: Extract MM and DD from YYYY-MM-DD
-        const dateParts = newEmp.joinDate.split('-'); // [YYYY, MM, DD]
-        if (dateParts.length !== 3) return;
-        
-        const mm = dateParts[1];
-        const dd = dateParts[2];
-        const dateSuffix = `${mm}${dd}`;
+    // Logic: Extract MM and DD from YYYY-MM-DD
+    const dateParts = newEmp.joinDate.split('-'); // [YYYY, MM, DD]
+    if (dateParts.length !== 3) return;
+    
+    const mm = dateParts[1];
+    const dd = dateParts[2];
+    const dateSuffix = `${mm}${dd}`;
 
-        // Get Initials
-        let initials = '';
-        if (pinyinCache && newEmp.name === pinyinCache.split('|')[0]) {
-            initials = pinyinCache.split('|')[1];
-        } else {
-            initials = await generatePinyinInitials(newEmp.name);
-            setPinyinCache(`${newEmp.name}|${initials}`);
-        }
+    // Get Initials
+    let initials = '';
+    // Simple cache check to avoid API spam if name hasn't changed
+    if (pinyinCache && newEmp.name === pinyinCache.split('|')[0]) {
+        initials = pinyinCache.split('|')[1];
+    } else {
+        initials = await generatePinyinInitials(newEmp.name);
+        setPinyinCache(`${newEmp.name}|${initials}`);
+    }
 
-        setGeneratedId(`${initials}${dateSuffix}`);
-    };
-
-    const timer = setTimeout(generate, 500); 
-    return () => clearTimeout(timer);
-  }, [newEmp.name, newEmp.joinDate, editingId, pinyinCache]);
+    setGeneratedId(`${initials}${dateSuffix}`);
+  };
 
   const handleOpenModal = (emp?: Employee) => {
     if (emp) {
@@ -248,12 +276,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setNewEmp({
       name: '',
       jobTitle: '',
-      joinDate: '',
+      joinDate: new Date().toISOString().split('T')[0], // Default today
       gender: Gender.MALE,
       probationSalary: 0,
       fullSalary: 0,
       probationMonths: 3
     });
+  };
+
+  const handleNameChange = (val: string) => {
+    // Only allow letters, chinese characters, and spaces. No numbers or symbols.
+    if (/^[a-zA-Z\u4e00-\u9fa5\s]*$/.test(val)) {
+        setNewEmp({ ...newEmp, name: val });
+    }
   };
 
   const handleFormSubmit = async () => {
@@ -262,8 +297,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       return;
     }
 
-    if (newEmp.probationSalary >= newEmp.fullSalary) {
-      addToast('试用期工资必须低于转正工资', 'error');
+    if (newEmp.probationSalary > newEmp.fullSalary) {
+      // Allowed equal now, per requirements
+      // Just ensure not greater strictly if desired, but "probation should be <= full" logic is common.
+      // User said: "试用期工资是应该小于等于转正工资，他俩是可以等值的" -> <= is fine.
+      // So if prob > full, it's an error.
+      addToast('试用期工资不得高于转正工资', 'error');
       return;
     }
 
@@ -275,12 +314,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         addToast(`员工 ${updatedEmployee.name} 信息已更新`, 'success');
       }
     } else {
-      if (!generatedId || generatedId === 'xx') {
-          addToast('工号生成失败，请检查姓名', 'error');
+      if (!generatedId) {
+          addToast('工号生成失败，请手动输入或检查姓名', 'error');
           return;
       }
       const newEmployee: Employee = {
-        id: generatedId,
+        id: generatedId, // Use the generated (and possibly manually edited) ID
         ...newEmp,
         password: '1234',
         isFirstLogin: true
@@ -307,6 +346,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const getTotalPayout = () => {
     return employees.reduce((sum, emp) => {
+      // Check if joined
+      if (getSalaryStatus(emp, selectedMonth) === 'NOT_JOINED') return sum;
+
       const record = salaryRecords.find(r => r.id === `${emp.id}_${selectedMonth}`);
       if (record) return sum + record.totalSalary;
       const status = getSalaryStatus(emp, selectedMonth);
@@ -423,21 +465,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                           className="flex-1 text-xs" 
                                           onClick={() => handleOpenModal(emp)}
                                       >
-                                          <Pencil size={12}/> 编辑档案
+                                          <Pencil size={12}/> 编辑
                                       </Button>
                                       <Button 
                                           variant="danger" 
                                           size="sm" 
                                           className="text-xs px-3" 
-                                          title="重置密码"
+                                          title="删除员工"
                                           onClick={() => {
-                                              if(confirm(`确定重置 ${emp.name} 的密码为 1234 吗?`)) {
-                                                  onResetPassword(emp.id);
-                                                  addToast('密码已重置', 'success');
+                                              if(confirm(`警告：确定删除 ${emp.name} (工号: ${emp.id}) 吗?\n此操作无法撤销，将删除其所有请假和薪资记录。`)) {
+                                                  onDeleteEmployee(emp.id);
+                                                  addToast('员工已删除', 'info');
                                               }
                                           }}
                                       >
-                                          <KeyRound size={12}/>
+                                          <Trash2 size={12}/>
                                       </Button>
                                   </div>
                               </NeonCard>
@@ -610,28 +652,42 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
          <div className="space-y-6">
             {/* ID Preview Header */}
             {!editingId && (
-               <div className="text-center py-4 bg-white/5 rounded-2xl border border-white/5 mb-6">
-                  <div className="text-xs text-nexus-muted uppercase tracking-widest mb-2">System Generated ID</div>
-                  <div className="text-3xl font-mono font-bold text-white tracking-widest">
-                     {generatedId || <span className="text-white/10">----</span>}
+               <div className="text-center py-4 bg-white/5 rounded-2xl border border-white/5 mb-6 relative">
+                  <div className="text-xs text-nexus-muted uppercase tracking-widest mb-2">系统自动生成工号 (可点击修改)</div>
+                  
+                  {/* Editable ID Field */}
+                  <div className="flex justify-center">
+                    <input 
+                      type="text" 
+                      value={generatedId}
+                      onChange={(e) => setGeneratedId(e.target.value)}
+                      className="bg-transparent text-3xl font-mono font-bold text-white tracking-widest text-center focus:outline-none focus:ring-0 w-full max-w-md border-b border-transparent hover:border-white/10 focus:border-nexus-accent transition-all"
+                      placeholder="----"
+                    />
                   </div>
-                  <div className="text-[10px] text-nexus-muted mt-2 opacity-60">Logic: Pinyin Initials + Month/Day</div>
+                  
+                  <div className="text-[10px] text-nexus-muted mt-2 opacity-60">规则: 拼音首字母 + 入职月日 (如 db1001)</div>
                </div>
             )}
 
             <div className="grid grid-cols-2 gap-6">
                 <Input 
-                  label="姓名 (中文)" 
-                  placeholder="如: 李茹" 
+                  label="姓名 (中文/英文)" 
+                  placeholder="如: 李茹 或 Mike" 
                   value={newEmp.name}
-                  onChange={e => setNewEmp({...newEmp, name: e.target.value})}
+                  onChange={e => handleNameChange(e.target.value)}
+                  onBlur={() => triggerIdGeneration()} // Instant generation on blur
                   autoFocus
                 />
                 <Input 
                   type="date" 
                   label="入职日期"
                   value={newEmp.joinDate}
-                  onChange={e => setNewEmp({...newEmp, joinDate: e.target.value})}
+                  onChange={e => {
+                      setNewEmp({...newEmp, joinDate: e.target.value});
+                      // Trigger generation if name is already there
+                      if(newEmp.name) setTimeout(triggerIdGeneration, 0);
+                  }}
                 />
             </div>
             
@@ -646,8 +702,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   label="性别"
                   options={[
                     { value: Gender.MALE, label: '男' },
-                    { value: Gender.FEMALE, label: '女' },
-                    { value: Gender.OTHER, label: '其他' }
+                    { value: Gender.FEMALE, label: '女' }
                   ]}
                   value={newEmp.gender}
                   onChange={e => setNewEmp({...newEmp, gender: e.target.value as Gender})}
@@ -689,11 +744,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <div className="flex-1 text-right pt-6">
                         <span className="text-xs text-nexus-muted">预计转正: </span>
                         <span className="text-sm font-mono text-nexus-accent">
-                           {newEmp.joinDate ? (() => {
-                              const d = new Date(newEmp.joinDate);
-                              d.setMonth(d.getMonth() + newEmp.probationMonths);
-                              return d.toLocaleDateString();
-                           })() : '-'}
+                           {calculateProbationStatus()}
                         </span>
                     </div>
                 </div>
