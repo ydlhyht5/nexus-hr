@@ -551,10 +551,6 @@ export const BarChart: React.FC<BarChartProps> = ({
   );
 };
 
-// ... (Rest of UI components: Button, Input, Badge, Modal, Toast, ToastContainer remain unchanged) ...
-// Included strictly for context if needed, but omitted here to keep response focused on changes.
-// Assuming the user has the existing Button/Input/etc. I will include them to be safe.
-
 // --- Button ---
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'danger' | 'ghost' | 'success';
@@ -674,8 +670,8 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, 
         className="absolute inset-0 bg-black/80 backdrop-blur-md transition-opacity duration-300" 
         onClick={onClose}
       />
-      <div className="relative bg-[#0F111A] border border-white/10 rounded-2xl w-full max-w-2xl shadow-2xl transform transition-all animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
-        <div className="flex items-center justify-between p-6 border-b border-white/5 bg-gradient-to-r from-white/5 to-transparent">
+      <div className="relative bg-[#0F111A] border border-white/10 rounded-2xl w-[92%] md:w-full max-w-2xl shadow-2xl transform transition-all animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
+        <div className="flex items-center justify-between p-4 md:p-6 border-b border-white/5 bg-gradient-to-r from-white/5 to-transparent">
           <h3 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
             <span className="w-1 h-6 bg-nexus-accent rounded-full"></span>
             {title}
@@ -684,11 +680,11 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, 
             <X size={18} />
           </button>
         </div>
-        <div className="p-8 overflow-y-auto custom-scrollbar">
+        <div className="p-5 md:p-8 overflow-y-auto custom-scrollbar">
           {children}
         </div>
         {footer && (
-          <div className="p-6 border-t border-white/5 bg-white/5 rounded-b-2xl">
+          <div className="p-4 md:p-6 border-t border-white/5 bg-white/5 rounded-b-2xl">
             {footer}
           </div>
         )}
