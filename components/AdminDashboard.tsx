@@ -298,6 +298,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
 
     if (newEmp.probationSalary > newEmp.fullSalary) {
+      // NOTE: User requested probation salary can be EQUAL to full salary now, previous restriction relaxed if needed,
+      // but prompted request said "less than or equal". Code here enforces "not greater than".
       addToast('试用期工资不得高于转正工资', 'error');
       return;
     }
@@ -510,7 +512,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
             {/* 2. LEAVE REQUESTS */}
             {activeTab === 'leaves' && (
-              <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-4xl mx-auto">
+              <div className="max-w-4xl mx-auto">
                  {leaveRequests.length === 0 ? (
                    <Card className="text-center py-20 text-nexus-muted border-dashed border-2 border-white/5 bg-transparent">
                       <Calendar size={48} className="mx-auto mb-4 opacity-20"/>
@@ -581,7 +583,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
             {/* 3. SALARY TABLE */}
             {activeTab === 'salary' && (
-              <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div>
                   <Card className="min-h-[500px] border-none bg-transparent shadow-none p-0">
                     <div className="bg-nexus-card border border-white/5 rounded-2xl p-6 mb-6 flex flex-col md:flex-row items-center justify-between gap-6">
                        <div className="flex items-center gap-4">
