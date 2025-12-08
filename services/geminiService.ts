@@ -1,54 +1,40 @@
-import { GoogleGenAI } from "@google/genai";
-
-// Safe access to API Key that works in Vite/Browser environment
-const getApiKey = (): string => {
-  try {
-    // @ts-ignore
-    return (import.meta && import.meta.env && import.meta.env.API_KEY) || '';
-  } catch (e) {
-    return '';
-  }
-};
-
-const apiKey = getApiKey();
-let ai: GoogleGenAI | null = null;
-
-if (apiKey) {
-  try {
-    ai = new GoogleGenAI({ apiKey });
-  } catch (e) {
-    console.warn("Failed to initialize GoogleGenAI", e);
-  }
-}
+import { pinyin } from 'pinyin-pro';
 
 /**
- * Generates Pinyin initials from a Chinese name using Gemini.
- * Returns lowercase initials. e.g., "李茹" -> "lr"
+ * Generates Pinyin initials from a Chinese name using pinyin-pro.
+ * Returns lowercase initials. e.g., "李茹" -> "lr", "测试" -> "cs"
+ * Handles English names by returning initials. e.g., "Mike" -> "m"
  */
-export const generatePinyinInitials = async (chineseName: string): Promise<string> => {
-  if (!chineseName) return '';
-  
-  // Fallback immediately if no key or no AI instance to prevent crash
-  if (!ai) {
-     return chineseName.substring(0, 2).toLowerCase();
-  }
-  
+export const generatePinyinInitials = async (name: string): Promise<string> => {
+  if (!name) return '';
+  const cleanName = name.trim();
+
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: `Convert the Chinese name "${chineseName}" into its Pinyin initials. 
-      Return ONLY the lowercase initials. Do not add spaces, numbers or symbols. 
-      Strictly just the first letter of each Pinyin syllable.
-      Example: "李茹" -> "lr". "张三丰" -> "zsf".`,
+    // Check if purely English/Latin
+    if (/^[a-zA-Z\s]+$/.test(cleanName)) {
+        const parts = cleanName.split(/\s+/);
+        // Return first char of up to first 2 words
+        return parts.slice(0, 2).map(p => p[0]).join('').toLowerCase();
+    }
+
+    // Use pinyin-pro for Chinese
+    // pattern: 'first' gets the first letter of each pinyin
+    // toneType: 'none' removes tones
+    // type: 'array' returns array of initials
+    const initials = pinyin(cleanName, { 
+        pattern: 'first', 
+        toneType: 'none', 
+        type: 'array' 
     });
 
-    const text = response.text?.trim().toLowerCase();
-    // Strict validation: keep only a-z
-    const cleanText = text?.replace(/[^a-z]/g, '');
-    return cleanText || chineseName.substring(0, 2).toLowerCase();
+    if (Array.isArray(initials)) {
+        return initials.join('').toLowerCase();
+    }
+    
+    return cleanName.substring(0, 2).toLowerCase();
   } catch (error) {
-    console.warn("Gemini API Error (Pinyin):", error);
-    // Fallback: simple slice
-    return chineseName.substring(0, 2).toLowerCase();
+    console.warn("Pinyin conversion failed:", error);
+    // Ultimate fallback
+    return cleanName.substring(0, 2).toLowerCase();
   }
 };
