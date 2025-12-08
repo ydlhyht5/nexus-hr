@@ -19,7 +19,8 @@ interface AdminDashboardProps {
   onLogout: () => void;
 }
 
-// ... Helper Functions (isWorkDay, etc. - kept same as before) ...
+// --- Helper Functions ---
+
 const getPreviousMonth = (monthStr: string): string => {
     const [year, month] = monthStr.split('-').map(Number);
     const date = new Date(year, month - 2, 1); 
@@ -46,15 +47,23 @@ const getSalaryStatus = (emp: Employee, workMonthStr: string): 'NOT_JOINED' | 'P
   return workYearMonth < probationTime ? 'PROBATION' : 'OFFICIAL';
 };
 
+/**
+ * Check if a date is a working day based on Big/Small week rule.
+ * Mon-Fri: Work
+ * Sun: Rest
+ * Sat: Alternates (1st-Rest, 2nd-Work, 3rd-Rest, 4th-Work...)
+ */
 const isWorkDay = (date: Date): boolean => {
     const day = date.getDay();
-    if (day === 0) return false; 
-    if (day >= 1 && day <= 5) return true; 
+    if (day === 0) return false; // Sunday is always off
+    if (day >= 1 && day <= 5) return true; // Mon-Fri is work
 
+    // It is Saturday (day === 6)
     const year = date.getFullYear();
     const month = date.getMonth();
     const dayOfMonth = date.getDate();
 
+    // Find index of this Saturday among all Saturdays in the month
     let saturdayIndex = -1;
     let count = 0;
     const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -69,9 +78,17 @@ const isWorkDay = (date: Date): boolean => {
             count++;
         }
     }
+
+    // Index 0 (1st Sat) -> Double Break (Rest) -> False
+    // Index 1 (2nd Sat) -> Single Break (Work) -> True
+    // Index 2 (3rd Sat) -> Double Break (Rest) -> False
+    // Index 3 (4th Sat) -> Single Break (Work) -> True
     return saturdayIndex !== -1 && saturdayIndex % 2 !== 0;
 };
 
+/**
+ * Calculate total standard working days in a month (Denominator for Daily Rate)
+ */
 const getMonthlyStandardDays = (monthStr: string): number => {
     const [year, month] = monthStr.split('-').map(Number);
     const daysInMonth = new Date(year, month, 0).getDate();
@@ -84,23 +101,30 @@ const getMonthlyStandardDays = (monthStr: string): number => {
     return workDays;
 };
 
+/**
+ * Calculate actual payable working days for an employee (Integers only)
+ * Accounts for Join Date.
+ */
 const calculateActualWorkDays = (emp: Employee, monthStr: string): number => {
     const [year, month] = monthStr.split('-').map(Number);
     const monthStart = new Date(year, month - 1, 1);
     const monthEnd = new Date(year, month, 0);
     const joinDate = new Date(emp.joinDate);
 
+    // Normalize join date to start of day
     joinDate.setHours(0,0,0,0);
     monthStart.setHours(0,0,0,0);
     monthEnd.setHours(0,0,0,0);
 
     if (joinDate > monthEnd) return 0;
 
+    // Start counting from whichever is later: Month Start or Join Date
     const startDate = joinDate > monthStart ? joinDate : monthStart;
     
     let workDays = 0;
     const current = new Date(startDate);
     
+    // Iterate day by day
     while (current <= monthEnd) {
         if (isWorkDay(current)) {
             workDays++;
@@ -110,6 +134,9 @@ const calculateActualWorkDays = (emp: Employee, monthStr: string): number => {
     return workDays;
 };
 
+/**
+ * Calculate leave deductions (Only counts working days)
+ */
 const calculateLeaveDaysInMonth = (requests: LeaveRequest[], empId: string, monthStr: string): number => {
     const [year, month] = monthStr.split('-').map(Number);
     const monthStart = new Date(year, month - 1, 1);
@@ -126,6 +153,7 @@ const calculateLeaveDaysInMonth = (requests: LeaveRequest[], empId: string, mont
         let current = new Date(req.startDate);
         const end = new Date(req.endDate);
 
+        // Clamp to current month
         if (current < monthStart) current = new Date(monthStart);
         const effectiveEnd = end > monthEnd ? monthEnd : end;
 
@@ -140,7 +168,7 @@ const calculateLeaveDaysInMonth = (requests: LeaveRequest[], empId: string, mont
     return leaveWorkDays;
 };
 
-// ... SalaryRow Component (Kept same) ...
+// --- Salary Row Component ---
 const SalaryRow: React.FC<{
   emp: Employee;
   payoutMonth: string;
@@ -155,14 +183,25 @@ const SalaryRow: React.FC<{
   const status = getSalaryStatus(emp, workMonth);
   const isNotJoined = status === 'NOT_JOINED';
   
+  // 1. Base Calculations
   const baseSalarySetting = status === 'PROBATION' ? emp.probationSalary : emp.fullSalary;
+  
+  // A. Total standard working days in this month (e.g., 25 days)
   const monthlyStandardDays = getMonthlyStandardDays(workMonth);
+  
+  // B. Employee's potential working days based on join date (Integer)
   const potentialWorkDays = isNotJoined ? 0 : calculateActualWorkDays(emp, workMonth);
+  
+  // C. Leave days that fall on working days (Integer)
   const leaveDays = isNotJoined ? 0 : calculateLeaveDaysInMonth(leaveRequests, emp.id, workMonth);
+  
+  // D. Net Actual Working Days (Integer)
   const systemNetWorkDays = Math.max(0, potentialWorkDays - leaveDays);
 
+  // 2. State
   const [sales, setSales] = useState(isNotJoined ? '0' : (existingRecord?.salesAmount?.toString() || ''));
   const [rate, setRate] = useState(isNotJoined ? '0' : (existingRecord?.bonusRate?.toString() || ''));
+  // Manual Override State
   const [manualDays, setManualDays] = useState(isNotJoined ? '0' : (existingRecord?.manualWorkDays?.toString() || '0'));
 
   useEffect(() => {
@@ -178,14 +217,21 @@ const SalaryRow: React.FC<{
      }
   }, [payoutMonth, salaryRecords, emp.id, isNotJoined]);
 
+  // 3. Final Calculation Logic
   const salesNum = parseFloat(sales) || 0;
   const rateNum = parseFloat(rate) || 0;
   const manualDaysNum = parseFloat(manualDays) || 0;
   
+  // Which days to use for calc? Manual Override > System Calc
   const finalDays = manualDaysNum > 0 ? manualDaysNum : systemNetWorkDays;
+  
+  // Daily Rate = Base / Standard Days (Avoid division by zero)
   const dailyRate = monthlyStandardDays > 0 ? (baseSalarySetting / monthlyStandardDays) : 0;
+  
+  // Calculated Base = Daily Rate * Final Worked Days
   const calculatedBaseSalary = isNotJoined ? 0 : (dailyRate * finalDays);
   
+  // Reporting fields
   const standardSalaryForMonth = isNotJoined ? 0 : baseSalarySetting; 
   const leaveDeductionAmount = isNotJoined ? 0 : (dailyRate * leaveDays);
 
@@ -204,14 +250,14 @@ const SalaryRow: React.FC<{
       employeeId: emp.id,
       employeeName: emp.name,
       month: payoutMonth,
-      basicSalary: calculatedBaseSalary, 
-      manualWorkDays: manualDaysNum,
-      standardSalary: standardSalaryForMonth, 
-      leaveDeduction: manualDaysNum > 0 ? 0 : leaveDeductionAmount, 
+      basicSalary: Math.round(calculatedBaseSalary), 
+      manualWorkDays: manualDaysNum, // Save the override
+      standardSalary: Math.round(standardSalaryForMonth), 
+      leaveDeduction: Math.round(manualDaysNum > 0 ? 0 : leaveDeductionAmount), 
       salesAmount: salesNum,
       bonusRate: rateNum,
-      bonusAmount: bonus,
-      totalSalary: total,
+      bonusAmount: Math.round(bonus),
+      totalSalary: Math.round(total),
       updatedAt: Date.now()
     };
     onSaveSalary(record);
@@ -219,7 +265,7 @@ const SalaryRow: React.FC<{
   };
 
   const isSaved = existingRecord && 
-    Math.abs(existingRecord.totalSalary - total) < 0.01;
+    Math.abs(existingRecord.totalSalary - Math.round(total)) < 1;
 
   return (
     <tr className={`border-b border-white/5 transition-colors group ${isNotJoined ? 'opacity-40 bg-black/20' : 'hover:bg-white/5'}`}>
@@ -249,6 +295,7 @@ const SalaryRow: React.FC<{
             </>
         )}
       </td>
+      {/* Manual Days Override Column */}
       <td className="p-4">
          <div className={`flex items-center gap-2 bg-black/20 rounded-lg p-1 border border-white/5 w-24 ${isNotJoined ? 'pointer-events-none opacity-50' : ''}`}>
              <input 
@@ -288,11 +335,11 @@ const SalaryRow: React.FC<{
         </div>
       </td>
       <td className="p-4 font-mono text-green-400">
-        +¥{bonus.toFixed(0)}
+        +¥{Math.round(bonus).toLocaleString()}
       </td>
       <td className="p-4">
-        <div className="font-bold text-lg text-white font-mono">¥{total.toFixed(0)}</div>
-        <div className="text-[10px] text-nexus-muted">基本工资: {calculatedBaseSalary.toFixed(0)}</div>
+        <div className="font-bold text-lg text-white font-mono">¥{Math.round(total).toLocaleString()}</div>
+        <div className="text-[10px] text-nexus-muted">底薪: {Math.round(calculatedBaseSalary).toLocaleString()}</div>
       </td>
       <td className="p-4 text-right">
          <Button 
@@ -535,29 +582,35 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const now = new Date();
     for (let i = period - 1; i >= 0; i--) {
         const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-        const monthStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        const payoutMonthStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        // DISPLAY LABEL should be the WORK MONTH (Previous Month), e.g. "2025-11" for Dec payout
+        const displayLabel = getPreviousMonth(payoutMonthStr);
+        
         let value = 0;
         let details = undefined;
 
         if (targetEmpId === 'all') {
             value = salaryRecords
-                .filter(r => r.month === monthStr)
+                .filter(r => r.month === payoutMonthStr)
                 .reduce((acc, r) => acc + r.totalSalary, 0);
         } else {
-            const rec = salaryRecords.find(r => r.month === monthStr && r.employeeId === targetEmpId);
+            const rec = salaryRecords.find(r => r.month === payoutMonthStr && r.employeeId === targetEmpId);
             if (rec) {
               value = rec.totalSalary;
+              const systemNetWorkDays = rec.manualWorkDays && rec.manualWorkDays > 0 ? rec.manualWorkDays : undefined;
+              
               details = {
                 base: rec.standardSalary || rec.basicSalary,
                 deduction: rec.leaveDeduction || 0,
                 bonus: rec.bonusAmount,
-                real: rec.totalSalary
+                real: rec.totalSalary,
+                days: systemNetWorkDays // Passed for tooltip
               };
             }
         }
         data.push({
-            label: monthStr,
-            value: value,
+            label: displayLabel, // Shows work month
+            value: Math.round(value),
             subLabel: targetEmpId === 'all' ? '公司总支出' : '个人收入',
             details: details
         });
@@ -776,7 +829,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                        <div className="text-right">
                           <div className="text-xs text-nexus-muted uppercase tracking-wider mb-1">本月发放总额</div>
-                          <div className="text-2xl font-bold text-emerald-400 font-mono tracking-tight">¥{getTotalPayout().toLocaleString(undefined, {maximumFractionDigits: 0})}</div>
+                          <div className="text-2xl font-bold text-emerald-400 font-mono tracking-tight">¥{Math.round(getTotalPayout()).toLocaleString()}</div>
                        </div>
                     </div>
                     
@@ -826,7 +879,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                              <div>
                                  <div className="text-xs text-nexus-muted uppercase tracking-wider">公司薪资总支出</div>
                                  <div className="text-2xl font-bold text-white font-mono mt-1">
-                                     ¥{getChartData(companyPeriod, 'all').reduce((acc, curr) => acc + curr.value, 0).toLocaleString()}
+                                     ¥{Math.round(getChartData(companyPeriod, 'all').reduce((acc, curr) => acc + curr.value, 0)).toLocaleString()}
                                  </div>
                              </div>
                         </div>
