@@ -1,6 +1,27 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { X, CheckCircle, AlertCircle, Info, Calendar as CalendarIcon, ChevronLeft, ChevronRight, ChevronDown, Check } from 'lucide-react';
 
+// --- Global Styles for Scrollbar & Inputs ---
+const GlobalStyles = () => (
+  <style>{`
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+
+    /* Remove Native Number Spinners */
+    input[type=number]::-webkit-inner-spin-button, 
+    input[type=number]::-webkit-outer-spin-button { 
+      -webkit-appearance: none; 
+      margin: 0; 
+    }
+    input[type=number] {
+      -moz-appearance: textfield;
+    }
+  `}</style>
+);
+
 // --- Card (Enhanced Web3 Gradient Border) ---
 export const Card: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = '' }) => (
   <div className={`relative p-[1px] rounded-2xl bg-gradient-to-b from-white/15 via-white/5 to-white/5 transition-all duration-300 hover:shadow-neon-hover ${className}`}>
@@ -217,59 +238,6 @@ export const BarChart: React.FC<{ data: any[]; height?: number; colorStart?: str
   );
 };
 
-// --- Line Chart ---
-export const LineChart: React.FC<{ data: { label: string; value: number }[]; height?: number }> = ({ data, height = 250 }) => {
-  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
-  if (!data || data.length === 0) return <div className="h-[250px] flex items-center justify-center text-nexus-muted">暂无数据</div>;
-  const maxValue = Math.max(...data.map(d => d.value)) * 1.1 || 1000;
-  const points = data.map((d, i) => {
-    const x = (i / (data.length - 1)) * 100;
-    const y = 100 - (d.value / maxValue) * 100;
-    return { x, y, ...d };
-  });
-  const pathD = `M ${points.map(p => `${p.x},${p.y}`).join(' L ')}`;
-  const areaD = `${pathD} L 100,100 L 0,100 Z`;
-
-  return (
-    <div className="relative w-full" style={{ height: `${height}px` }} onMouseLeave={() => setHoverIdx(null)}>
-      <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full overflow-visible">
-        <defs>
-          <linearGradient id="lineGradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#6366f1" stopOpacity="0.5" />
-            <stop offset="100%" stopColor="#6366f1" stopOpacity="0" />
-          </linearGradient>
-          <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-            <feGaussianBlur stdDeviation="2" result="coloredBlur" />
-            <feMerge>
-              <feMergeNode in="coloredBlur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-        </defs>
-        <path d={areaD} fill="url(#lineGradient)" className="opacity-50 animate-[grow_1s_ease-out]" />
-        <path d={pathD} fill="none" stroke="#818cf8" strokeWidth="0.8" filter="url(#glow)" className="animate-[draw_2s_ease-out]" strokeLinecap="round" strokeLinejoin="round" />
-        {points.map((p, i) => (
-          <g key={i} onMouseEnter={() => setHoverIdx(i)}>
-            <circle cx={p.x} cy={p.y} r={hoverIdx === i ? "2" : "1"} fill="#fff" className="transition-all duration-300" />
-            <circle cx={p.x} cy={p.y} r={hoverIdx === i ? "4" : "0"} fill="rgba(99,102,241,0.3)" className="animate-pulse" />
-          </g>
-        ))}
-      </svg>
-      {hoverIdx !== null && (
-        <div className="absolute bg-[#0F111A] border border-white/10 rounded-xl px-3 py-2 text-xs shadow-neon pointer-events-none transform -translate-x-1/2 -translate-y-full transition-all" style={{ left: `${points[hoverIdx].x}%`, top: `${points[hoverIdx].y}%`, marginTop: '-12px' }}>
-          <div className="text-nexus-muted mb-1">{points[hoverIdx].label}</div>
-          <div className="text-white font-mono font-bold">¥{Math.round(points[hoverIdx].value).toLocaleString()}</div>
-        </div>
-      )}
-      <div className="absolute bottom-0 w-full flex justify-between text-[10px] text-nexus-muted translate-y-full pt-2">
-        {data.map((d, i) => (
-          <span key={i} className={i === 0 || i === data.length-1 || i % 2 === 0 ? 'opacity-100' : 'opacity-0 md:opacity-50'}>{d.label.split('-')[1] || d.label}月</span>
-        ))}
-      </div>
-    </div>
-  );
-};
-
 // ... Buttons, Inputs etc ...
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'danger' | 'ghost' | 'success';
@@ -363,3 +331,10 @@ export const Toast: React.FC<ToastProps> = ({ message, type, onClose }) => {
 export const ToastContainer: React.FC<{ toasts: { id: string; message: string; type: ToastType }[]; removeToast: (id: string) => void }> = ({ toasts, removeToast }) => (
   <div className="fixed top-6 right-6 z-[100] flex flex-col gap-3">{toasts.map(t => <Toast key={t.id} message={t.message} type={t.type} onClose={() => removeToast(t.id)} />)}</div>
 );
+
+// --- Component Export ---
+export const UI = () => {
+    return (
+        <GlobalStyles />
+    )
+}
