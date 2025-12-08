@@ -418,7 +418,6 @@ export const Pagination: React.FC<PaginationProps> = ({ currentPage, totalPages,
 };
 
 // --- Bar Chart (Web3 Style V2) ---
-// ... (BarChart code remains unchanged from previous version, included for completeness) ...
 interface BarChartProps {
   data: { 
     label: string; 
@@ -459,6 +458,7 @@ export const BarChart: React.FC<BarChartProps> = ({
         const percent = (item.value / maxValue) * 100;
         const isHovered = hoverIdx === idx;
         const displayValue = Math.round(item.value); 
+        const barHeight = Math.max(percent, 2); // Minimum 2% height for visibility
         
         return (
           <div 
@@ -522,20 +522,22 @@ export const BarChart: React.FC<BarChartProps> = ({
                <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-[#0F111A]"></div>
             </div>
 
-            {/* Value Label */}
-            <div 
-              className={`absolute bottom-[calc(100%+4px)] text-[10px] font-mono transition-all duration-300 ${isHovered ? 'opacity-100 -translate-y-1 text-white font-bold' : 'opacity-70 text-nexus-muted'}`}
-              style={{ bottom: mounted ? `${percent}%` : '0%' }}
-            >
-              {item.value > 0 ? `¥${displayValue.toLocaleString()}` : ''}
-            </div>
+            {/* Bar Container for Alignment */}
+            <div className="relative w-full h-full flex items-end justify-center">
+                {/* Value Label - MOVED INSIDE and absolute relative to Bar Container bottom */}
+                <div 
+                  className={`absolute w-full text-center text-[10px] font-mono font-bold transition-all duration-300 pointer-events-none z-10 ${isHovered ? 'text-white -translate-y-1 scale-110' : 'text-white/70 translate-y-0'}`}
+                  style={{ bottom: mounted ? `${barHeight}%` : '0%', marginBottom: '2px' }}
+                >
+                  {item.value > 0 ? `¥${displayValue.toLocaleString()}` : ''}
+                </div>
 
-            {/* Bar */}
-            <div className="w-full h-full flex items-end justify-center">
+                {/* Actual Bar */}
                 <div 
                   className={`w-full max-w-[40px] rounded-t-sm transition-all duration-700 ease-out bg-gradient-to-t ${colorStart} ${colorEnd} relative overflow-hidden ${isHovered ? 'brightness-125 shadow-[0_0_20px_rgba(16,185,129,0.4)]' : 'opacity-80'}`}
-                  style={{ height: mounted ? `${Math.max(percent, 2)}%` : '0%' }}
+                  style={{ height: mounted ? `${barHeight}%` : '0%' }}
                 >
+                   {/* Shine effect */}
                    <div className="absolute inset-0 bg-gradient-to-b from-white/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                 </div>
             </div>
@@ -551,7 +553,9 @@ export const BarChart: React.FC<BarChartProps> = ({
   );
 };
 
-// --- Button ---
+// ... (Rest of UI components: Button, Input, Badge, Modal, Toast, ToastContainer are preserved)
+// Including them to ensure file integrity.
+
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'danger' | 'ghost' | 'success';
   size?: 'sm' | 'md' | 'lg';
@@ -594,7 +598,7 @@ export const Button: React.FC<ButtonProps> = ({
         <div className="flex items-center gap-2">
           <svg className="animate-spin h-4 w-4 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
           </svg>
           <span>Processing...</span>
         </div>
@@ -608,7 +612,6 @@ export const Button: React.FC<ButtonProps> = ({
   );
 };
 
-// --- Input ---
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
   error?: string;
@@ -625,7 +628,6 @@ export const Input: React.FC<InputProps> = ({ label, error, className = '', ...p
   </div>
 );
 
-// --- Badge ---
 export const Badge: React.FC<{ status: string }> = ({ status }) => {
   const styles: Record<string, string> = {
     PENDING: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
@@ -652,7 +654,6 @@ export const Badge: React.FC<{ status: string }> = ({ status }) => {
   );
 };
 
-// --- Modal ---
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -693,7 +694,6 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, 
   );
 };
 
-// --- Toast ---
 export type ToastType = 'success' | 'error' | 'info';
 
 interface ToastProps {
