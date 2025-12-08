@@ -140,7 +140,7 @@ const calculateLeaveDaysInMonth = (requests: LeaveRequest[], empId: string, mont
     return leaveWorkDays;
 };
 
-// --- SalaryRow Component ---
+// ... SalaryRow Component ...
 const SalaryRow: React.FC<{
   emp: Employee;
   payoutMonth: string;
@@ -183,7 +183,6 @@ const SalaryRow: React.FC<{
 
   // Helper to handle input change and strip leading zeros
   const handleInputChange = (setter: React.Dispatch<React.SetStateAction<string>>, value: string) => {
-      // Remove leading zero if length > 1, unless it is "0."
       if (value.length > 1 && value.startsWith('0') && value[1] !== '.') {
           setter(value.substring(1));
       } else {
@@ -340,10 +339,7 @@ const SalaryRow: React.FC<{
 };
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
-    // ... (Main dashboard implementation largely unchanged, except applying GlobalUI)
-    // For brevity, I am wrapping the original logic and returning it, ensuring <GlobalUI /> is rendered.
-    
-    // ... Copying the full component logic ...
+    // ... Main Component logic ...
     const { employees, leaveRequests, salaryRecords, onAddEmployee, onUpdateEmployee, onDeleteEmployee, onResetPassword, onUpdateLeaveStatus, onSaveSalary, onImportData, onExportData, onLogout } = props;
     const [activeTab, setActiveTab] = useState<'employees' | 'leaves' | 'salary' | 'reports'>('employees');
   const [toasts, setToasts] = useState<{ id: string; message: string; type: ToastType }[]>([]);
@@ -581,6 +577,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
     for (let i = period - 1; i >= 0; i--) {
         const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
         const payoutMonthStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        // DISPLAY LABEL should be the WORK MONTH (Previous Month), e.g. "2025-11" for Dec payout
         const displayLabel = getPreviousMonth(payoutMonthStr);
         
         let value = 0;
@@ -594,6 +591,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
             const rec = salaryRecords.find(r => r.month === payoutMonthStr && r.employeeId === targetEmpId);
             if (rec) {
               value = rec.totalSalary;
+              const systemNetWorkDays = rec.manualWorkDays && rec.manualWorkDays > 0 ? rec.manualWorkDays : undefined;
+              
               const stdDays = getMonthlyStandardDays(displayLabel);
 
               details = {
@@ -602,7 +601,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
                 bonus: rec.bonusAmount,
                 attendanceBonus: rec.attendanceBonus,
                 real: rec.totalSalary,
-                days: rec.manualWorkDays || Math.round((rec.basicSalary / (rec.standardSalary || 1)) * stdDays), 
+                days: systemNetWorkDays || Math.round((rec.basicSalary / (rec.standardSalary || 1)) * stdDays), 
                 standardDays: stdDays 
               };
               
@@ -675,8 +674,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
             </div>
         </div>
 
-        {/* Content Area */}
-        <div className="min-h-[600px]">
+        {/* Content Area - NO FIXED HEIGHTS */}
+        <div className="w-full">
             {activeTab === 'employees' && (
               <div className="space-y-6">
                   {/* ... Employee Grid (kept same) ... */}
@@ -830,7 +829,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
             {/* SALARY TAB */}
             {activeTab === 'salary' && (
               <div>
-                  <Card className="min-h-[500px] border-none bg-transparent shadow-none p-0">
+                  {/* Removed min-h from Salary Card */}
+                  <Card className="border-none bg-transparent shadow-none p-0">
                     {/* Added relative z-20 to header */}
                     <div className="bg-nexus-card border border-white/5 rounded-2xl p-6 mb-6 flex flex-col md:flex-row items-center justify-between gap-6 relative z-20">
                        <div className="flex items-center gap-4">
