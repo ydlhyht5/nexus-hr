@@ -19,8 +19,7 @@ interface AdminDashboardProps {
   onLogout: () => void;
 }
 
-// --- Helper Functions ---
-
+// ... Helper Functions (kept same as before) ...
 const getPreviousMonth = (monthStr: string): string => {
     const [year, month] = monthStr.split('-').map(Number);
     const date = new Date(year, month - 2, 1); 
@@ -678,7 +677,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         <div className="min-h-[600px]">
             {activeTab === 'employees' && (
               <div className="space-y-6">
-                  {/* ... Employee Grid ... */}
+                  {/* ... Employee Grid (kept same) ... */}
                   <div className="flex justify-between items-center px-2">
                       <h2 className="text-white font-bold text-lg">全员名单 <span className="text-nexus-muted font-normal text-sm ml-2">({employees.length}人)</span></h2>
                       <Button onClick={() => handleOpenModal()} icon={<UserPlus size={16} />} size="sm">
@@ -995,18 +994,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <div className="text-[10px] text-nexus-muted mt-2 opacity-60">规则: 拼音首字母 + 入职月日 (如 db1001)</div>
                </div>
             )}
-            <div className="grid grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Input label="姓名 (中文/英文)" placeholder="如: 李茹 或 Mike" value={newEmp.name} onChange={e => handleNameChange(e.target.value)} onBlur={triggerIdGeneration} autoFocus />
                 <CustomDatePicker label="入职日期" value={newEmp.joinDate} onChange={(date) => setNewEmp({...newEmp, joinDate: date})} />
             </div>
-            <div className="grid grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Input label="职位名称" placeholder="如: 销售经理" value={newEmp.jobTitle} onChange={e => setNewEmp({...newEmp, jobTitle: e.target.value})} />
                 <CustomSelect label="性别" options={[{ value: Gender.MALE, label: '男' }, { value: Gender.FEMALE, label: '女' }, { value: Gender.OTHER, label: '其他' }]} value={newEmp.gender} onChange={(val) => setNewEmp({...newEmp, gender: val as Gender})} />
             </div>
             <div className="border-t border-white/5 my-2"></div>
             <div className="bg-black/20 p-4 rounded-2xl border border-white/5">
                 <h4 className="text-xs font-bold text-nexus-muted uppercase tracking-wider mb-4 flex items-center gap-2"><DollarSign size={12} /> 薪资结构设定</h4>
-                <div className="grid grid-cols-2 gap-6 mb-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
                    <Input type="number" label="试用期工资" value={newEmp.probationSalary} onChange={e => setNewEmp({...newEmp, probationSalary: Number(e.target.value)})} className="!bg-nexus-card" />
                   <Input type="number" label="转正后工资" value={newEmp.fullSalary} onChange={e => setNewEmp({...newEmp, fullSalary: Number(e.target.value)})} className="!bg-nexus-card" />
                 </div>
