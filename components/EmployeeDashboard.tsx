@@ -12,7 +12,7 @@ interface EmployeeDashboardProps {
   onLogout: () => void;
 }
 
-// --- Helper Functions (Duplicated from AdminDashboard to ensure consistency in calculation) ---
+// --- Helper Functions ---
 const getPreviousMonth = (monthStr: string): string => {
     if (!monthStr) return '';
     const [year, month] = monthStr.split('-').map(Number);
@@ -135,7 +135,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
     .filter(r => salaryFilterMonth ? r.month === salaryFilterMonth : true)
     .sort((a, b) => b.month.localeCompare(a.month)); // Newest first
 
-  // Data for Trend Chart (Bar Chart Logic)
+  // Data for Trend Chart
   const getChartData = (period: 6 | 12) => {
     const data = [];
     const now = new Date();
@@ -154,20 +154,17 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
             // Calculate details for tooltip
             const stdSalary = rec.standardSalary || rec.basicSalary;
             const basic = rec.basicSalary;
-            // SMART DEDUCTION CALC: If record says 0 deduction, but standard > basic, assume the difference is deduction
             const deduction = rec.leaveDeduction || (stdSalary > basic ? stdSalary - basic : 0);
             
-            // Standard Days for the work month
             const stdDays = getMonthlyStandardDays(displayLabel);
             
-            // Estimate days if not manual
             let days = rec.manualWorkDays;
             if (!days && stdSalary > 0) {
                 days = Math.round((basic / stdSalary) * stdDays);
             }
 
             details = {
-                base: stdSalary, // Always show standard base in breakdown
+                base: stdSalary,
                 deduction: deduction,
                 bonus: rec.bonusAmount,
                 attendanceBonus: rec.attendanceBonus,
@@ -187,7 +184,6 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
     return data;
   };
 
-  // Handle Download Payslip
   const handleDownload = async (record: SalaryRecord) => {
     const el = document.getElementById(`payslip-${record.id}`);
     if (!el) return;
