@@ -152,10 +152,6 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
             value = rec.totalSalary;
             
             // Calculate details for tooltip
-            // FIX: Use actual basic salary (paid) as base, so math adds up
-            const paidBasic = rec.basicSalary;
-            const deduction = rec.leaveDeduction || 0;
-            
             // Standard Days for the work month
             const stdDays = getMonthlyStandardDays(displayLabel);
             
@@ -163,12 +159,13 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
             let days = rec.manualWorkDays;
             if (!days && rec.standardSalary && rec.standardSalary > 0) {
                 // If Paid Basic < Standard, days will be lower
-                days = Math.round((paidBasic / rec.standardSalary) * stdDays);
+                days = Math.round((rec.basicSalary / rec.standardSalary) * stdDays);
             }
 
             details = {
-                base: paidBasic, 
-                deduction: deduction,
+                // Pass Standard (Gross) Salary as Base so tooltip math works (Standard - Deduction = Net)
+                base: rec.standardSalary || rec.basicSalary || 0,
+                deduction: rec.leaveDeduction || 0,
                 bonus: rec.bonusAmount,
                 attendanceBonus: rec.attendanceBonus,
                 real: rec.totalSalary,
@@ -416,9 +413,12 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
                             <p className="text-nexus-muted text-center py-8">暂无工资记录。</p>
                         ) : (
                             filteredSalaries.map(sal => {
-                                // Smart Deduction Calc: Just use what is stored
+                                // Explicitly use saved standard Salary (gross) or fallback to basic
                                 const stdSalary = sal.standardSalary || sal.basicSalary;
+                                // Explicit deduction
                                 const deduction = sal.leaveDeduction || 0;
+                                // Work month string (previous month)
+                                const workMonthStr = getPreviousMonth(sal.month);
 
                                 return (
                                 <div key={sal.id} className="relative group">
@@ -434,14 +434,14 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
                                                 <div className="text-xl font-bold">{sal.employeeName}</div>
                                             </div>
                                             <div className="text-right">
-                                                <div className="text-nexus-muted mb-1">发薪月份 (计薪周期)</div>
-                                                <div className="text-xl font-mono">{sal.month} ({getPreviousMonth(sal.month)})</div>
+                                                <div className="text-nexus-muted mb-1">计薪月份 (Work Month)</div>
+                                                <div className="text-xl font-mono font-bold">{workMonthStr}</div>
                                             </div>
                                         </div>
                                         <div className="grid grid-cols-2 gap-4 mb-8">
                                             <div className="bg-white/5 p-4 rounded-lg border border-white/10">
                                                 <div className="text-nexus-muted text-xs uppercase mb-2">收入项目 (Earnings)</div>
-                                                <div className="flex justify-between mb-2"><span>基本工资</span><span className="font-mono">¥{Math.round(stdSalary).toLocaleString()}</span></div>
+                                                <div className="flex justify-between mb-2"><span>标准薪资</span><span className="font-mono">¥{Math.round(stdSalary).toLocaleString()}</span></div>
                                                 <div className="flex justify-between mb-2"><span>销售业绩提成</span><span className="font-mono">¥{Math.round(sal.bonusAmount).toLocaleString()}</span></div>
                                                 <div className="flex justify-between"><span>全勤奖金</span><span className="font-mono">¥{Math.round(sal.attendanceBonus || 0).toLocaleString()}</span></div>
                                             </div>
@@ -465,9 +465,10 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
                                     <div className="bg-white/5 border border-white/5 rounded-xl p-5 hover:border-nexus-accent/30 transition-all">
                                         <div className="flex justify-between items-start mb-4">
                                             <div>
-                                                <span className="text-lg font-bold text-white font-mono block">{sal.month}</span>
+                                                {/* PRIMARY TITLE should be the Work Month */}
+                                                <span className="text-lg font-bold text-white font-mono block">{workMonthStr}</span>
                                                 <span className="text-xs text-nexus-muted flex items-center gap-1">
-                                                    计薪周期: <span className="text-white/80">{getPreviousMonth(sal.month)}</span>
+                                                    发放日期(批次): <span className="text-white/50">{sal.month}</span>
                                                 </span>
                                             </div>
                                             <div className="text-right">
@@ -478,7 +479,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
                                         
                                         <div className="grid grid-cols-2 md:grid-cols-4 gap-y-4 gap-x-2 text-sm border-t border-white/5 pt-4">
                                             <div>
-                                                <div className="text-xs text-nexus-muted uppercase mb-1">基本工资</div>
+                                                <div className="text-xs text-nexus-muted uppercase mb-1">标准薪资</div>
                                                 <div className="text-white font-mono">¥{Math.round(stdSalary).toLocaleString()}</div>
                                             </div>
                                             <div>
