@@ -177,12 +177,11 @@ class DatabaseService {
       
       try {
           // 2. Try delete from cloud
-          // Note: Current worker implementation might need an update to support DELETE method
-          // If the worker supports DELETE /api/employees?id=xxx or DELETE /api/employees with body {id}
-          // Assuming RESTful DELETE for future proofing or explicit ID param
+          // Send DELETE request with ID as query param
           await this.fetchAPI(`${endpoint}?id=${id}`, {
               method: 'DELETE'
           });
+          console.log(`[${storeName}] Deleted from cloud successfully.`);
       } catch(e) {
           console.warn(`[${storeName}] Cloud delete failed, but deleted locally.`, e);
       }
