@@ -388,14 +388,13 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
                          placeholder="请填写请假的具体原因..."
                          value={leaveForm.reason}
                          onChange={e => setLeaveForm({...leaveForm, reason: e.target.value})}
-                         required
                        />
                     </div>
                     <div className="flex gap-4 pt-4">
                       <Button type="button" variant="ghost" onClick={() => { setActiveTab('profile'); setLeaveForm({startDate:'', endDate:'', reason:'', editingId: undefined}); }} className="flex-1">
                         取消
                       </Button>
-                      <Button type="submit" variant="primary" className="flex-1">
+                      <Button type="submit" variant="primary" className="flex-1" disabled={!leaveForm.reason.trim() || daysCount <= 0}>
                         {leaveForm.editingId ? '更新申请' : '提交申请'}
                       </Button>
                     </div>
