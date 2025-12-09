@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Employee, LeaveRequest, UserRole, UserSession, LeaveStatus, SalaryRecord } from './types';
 import { Button, Card, Input, ToastContainer, ToastType } from './components/UI';
@@ -67,36 +66,6 @@ const App: React.FC = () => {
     }
   };
 
-  // Helper to seed data for Li Taoran as requested by user
-  const seedLiTaoranData = async () => {
-      // Check if Li Taoran exists (using ID ltr1104 from screenshot or name)
-      const emp = (await db.getAllEmployees()).find(e => e.id === 'ltr1104' || e.name === '李陶然');
-      if (emp) {
-          const leaves = await db.getAllLeaves();
-          // Check if he has leave in Nov 2025
-          const hasNovLeave = leaves.some(l => l.employeeId === emp.id && l.startDate.startsWith('2025-11'));
-          
-          if (!hasNovLeave) {
-              console.log("Creating forced leave record for Li Taoran...");
-              const newLeave: LeaveRequest = {
-                  id: `seed-${Date.now()}`,
-                  employeeId: emp.id,
-                  employeeName: emp.name,
-                  startDate: '2025-11-12',
-                  endDate: '2025-11-15', // 4 days
-                  days: 4,
-                  reason: '事假 (系统补录)',
-                  status: LeaveStatus.APPROVED,
-                  createdAt: Date.now(),
-                  synced: false
-              };
-              await db.saveLeave(newLeave);
-              // Force reload
-              loadData();
-          }
-      }
-  };
-
   // Initialize DB and Network Listeners
   useEffect(() => {
     const initApp = async () => {
@@ -108,10 +77,6 @@ const App: React.FC = () => {
       });
 
       await loadData();
-      
-      // Run Seeder
-      await seedLiTaoranData();
-
       setIsDbReady(true);
     };
 
@@ -287,11 +252,9 @@ const App: React.FC = () => {
 
   const deleteEmployee = async (id: string) => {
       await db.deleteEmployee(id);
-      // Update state: remove employee and leaves, BUT KEEP SALARY RECORDS for reports
+      // Update state: remove employee and leaves
       setEmployees(prev => prev.filter(e => e.id !== id));
       setLeaveRequests(prev => prev.filter(req => req.employeeId !== id));
-      // setSalaryRecords(prev => prev.filter(rec => rec.employeeId !== id)); // COMMENTED OUT TO KEEP HISTORY
-      
       loadData();
   };
 
@@ -330,6 +293,16 @@ const App: React.FC = () => {
 
   const handleImportData = (file: File) => alert("系统已启用自动云同步，无需手动导入。");
   const handleExportData = () => alert("数据已安全存储在云端 (Cloudflare D1)。");
+  
+  const handleFactoryReset = async () => {
+      if (window.confirm("危险操作：这将会清空所有员工、请假和薪资数据，且不可恢复！\n\n确定要继续吗？")) {
+          await db.clearAllData();
+          setEmployees([]);
+          setLeaveRequests([]);
+          setSalaryRecords([]);
+          addToast("系统已重置，所有数据已清空", "success");
+      }
+  };
 
   // --- Employee Actions ---
 
@@ -493,6 +466,7 @@ const App: React.FC = () => {
           onImportData={handleImportData}
           onExportData={handleExportData}
           onLogout={handleLogout}
+          onFactoryReset={handleFactoryReset}
         />
       ) : (
         <EmployeeDashboard 
