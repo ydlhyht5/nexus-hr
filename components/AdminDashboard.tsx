@@ -13,6 +13,7 @@ interface AdminDashboardProps {
   onDeleteEmployee: (id: string) => void;
   onResetPassword: (id: string, newPass?: string) => void;
   onUpdateLeaveStatus: (id: string, status: LeaveStatus, reason?: string) => void;
+  onDeleteLeave: (id: string) => void;
   onSaveSalary: (record: SalaryRecord) => void;
   onImportData: (file: File) => void;
   onExportData: () => void;
@@ -385,7 +386,7 @@ const SalaryRow: React.FC<{
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
     // ... Main Component logic ...
-    const { employees, leaveRequests, salaryRecords, onAddEmployee, onUpdateEmployee, onDeleteEmployee, onResetPassword, onUpdateLeaveStatus, onSaveSalary, onImportData, onExportData, onLogout, onFactoryReset } = props;
+    const { employees, leaveRequests, salaryRecords, onAddEmployee, onUpdateEmployee, onDeleteEmployee, onResetPassword, onUpdateLeaveStatus, onDeleteLeave, onSaveSalary, onImportData, onExportData, onLogout, onFactoryReset } = props;
     const [activeTab, setActiveTab] = useState<'employees' | 'leaves' | 'salary' | 'reports'>('employees');
   const [toasts, setToasts] = useState<{ id: string; message: string; type: ToastType }[]>([]);
   const addToast = (message: string, type: ToastType) => {
@@ -605,6 +606,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
   const handleApprove = (id: string) => {
       onUpdateLeaveStatus(id, LeaveStatus.APPROVED);
       addToast('请假申请已批准', 'success');
+  };
+
+  const handleDeleteLeave = (id: string) => {
+    if (window.confirm("确定要彻底删除这条请假记录吗？此操作不可恢复。")) {
+      onDeleteLeave(id);
+      addToast('记录已永久删除', 'success');
+    }
   };
 
   const getTotalPayout = () => {
@@ -862,6 +870,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
                                  </>
                                )}
                              </div>
+                           )}
+                           {req.status === LeaveStatus.REJECTED && (
+                                <div className="flex flex-col justify-center min-w-[140px]">
+                                    <Button 
+                                        variant="ghost" 
+                                        size="sm" 
+                                        onClick={() => handleDeleteLeave(req.id)} 
+                                        className="text-nexus-muted hover:text-red-400 hover:bg-red-500/10 transition-colors border-dashed border border-white/10"
+                                    >
+                                        <Trash2 size={14} className="mr-2" /> 删除记录
+                                    </Button>
+                                </div>
                            )}
                        </div>
                      </Card>
