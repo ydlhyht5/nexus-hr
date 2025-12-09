@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Employee, LeaveRequest, LeaveStatus, SalaryRecord } from '../types';
 import { Card, Button, Input, Badge, CustomDatePicker, CustomMonthPicker, BarChart, UI as GlobalUI } from './UI';
-import { User, Calendar, Clock, DollarSign, LogOut, Briefcase, Download, TrendingUp } from 'lucide-react';
+import { User, Calendar, Clock, DollarSign, LogOut, Briefcase, Download, TrendingUp, AlertCircle } from 'lucide-react';
 import html2canvas from 'html2canvas';
 
 interface EmployeeDashboardProps {
@@ -106,15 +106,14 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
   };
 
   const daysCount = calculateDays(leaveForm.startDate, leaveForm.endDate);
+  const isFormValid = leaveForm.reason.trim().length > 0 && daysCount > 0;
 
   const isProbation = new Date() < new Date(new Date(employee.joinDate).setMonth(new Date(employee.joinDate).getMonth() + employee.probationMonths));
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (daysCount <= 0) {
-        alert("结束日期必须晚于或等于开始日期");
-        return;
-    }
+    if (!isFormValid) return; // Prevent submission if invalid
+    
     onSubmitLeave(leaveForm.startDate, leaveForm.endDate, daysCount, leaveForm.reason, leaveForm.editingId);
     setLeaveForm({ startDate: '', endDate: '', reason: '', editingId: undefined });
     setActiveTab('profile'); 
@@ -394,9 +393,23 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
                       <Button type="button" variant="ghost" onClick={() => { setActiveTab('profile'); setLeaveForm({startDate:'', endDate:'', reason:'', editingId: undefined}); }} className="flex-1">
                         取消
                       </Button>
-                      <Button type="submit" variant="primary" className="flex-1" disabled={!leaveForm.reason.trim() || daysCount <= 0}>
-                        {leaveForm.editingId ? '更新申请' : '提交申请'}
-                      </Button>
+                      <div className="flex-1 relative group">
+                        <Button 
+                            type="submit" 
+                            variant="primary" 
+                            className="w-full" 
+                            disabled={!isFormValid}
+                        >
+                            {leaveForm.editingId ? '更新申请' : '提交申请'}
+                        </Button>
+                        {!isFormValid && (
+                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 px-4 py-2 bg-[#0F111A] border border-red-500/30 text-red-300 text-xs rounded-xl shadow-[0_0_15px_rgba(239,68,68,0.2)] opacity-0 group-hover:opacity-100 transition-all duration-300 transform scale-95 group-hover:scale-100 group-hover:-translate-y-1 pointer-events-none whitespace-nowrap z-10 flex items-center gap-2 backdrop-blur-md">
+                                <AlertCircle size={12} />
+                                <span>请检查日期选择或填写事由</span>
+                                <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-[#0F111A] border-r border-b border-red-500/30 rotate-45"></div>
+                            </div>
+                        )}
+                      </div>
                     </div>
                  </form>
                </Card>
