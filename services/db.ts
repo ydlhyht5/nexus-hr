@@ -116,6 +116,18 @@ class DatabaseService {
     });
   }
 
+  private async clearStore(storeName: string): Promise<void> {
+      const db = await this.dbPromise;
+      if (!db) return;
+      return new Promise((resolve, reject) => {
+          const tx = db.transaction(storeName, 'readwrite');
+          const store = tx.objectStore(storeName);
+          const request = store.clear();
+          request.onsuccess = () => resolve();
+          request.onerror = () => reject(request.error);
+      });
+  }
+
   private async bulkSaveLocal<T>(storeName: string, items: T[]): Promise<void> {
     const db = await this.dbPromise;
     if (!db) return;
@@ -212,12 +224,6 @@ class DatabaseService {
       // Execute in parallel
       await Promise.all(empLeaves.map(l => this.deleteData('leaves', '/api/leaves', l.id)));
 
-      // 2. DO NOT delete related salaries to preserve company history
-      // The user requested to keep "Company Total" data even if staff is deleted.
-      // const salaries = await this.getLocalAll<SalaryRecord>('salaries');
-      // const empSalaries = salaries.filter(s => s.employeeId === id);
-      // await Promise.all(empSalaries.map(s => this.deleteData('salaries', '/api/salaries', s.id)));
-
       // 3. Delete employee record
       return this.deleteData('employees', '/api/employees', id);
   }
@@ -237,6 +243,42 @@ class DatabaseService {
   async saveSalary(record: SalaryRecord): Promise<void> {
     return this.saveData('salaries', '/api/salaries', record);
   }
+
+  // --- FACTORY RESET ---
+  async clearAllData(): Promise<void> {
+      console.warn("⚠️ STARTING FACTORY RESET...");
+      
+      // 1. Clear Local DB
+      await this.clearStore('employees');
+      await this.clearStore('leaves');
+      await this.clearStore('salaries');
+
+      // 2. Attempt to clear Cloud DB
+      // Since the API doesn't support bulk delete, we must fetch and delete individually.
+      // This is slow but safe.
+      try {
+          const emps = await this.fetchAPI<Employee[]>('/api/employees');
+          for (const e of emps) {
+              await this.fetchAPI(`/api/employees?id=${e.id}`, { method: 'DELETE' });
+          }
+
+          const leaves = await this.fetchAPI<LeaveRequest[]>('/api/leaves');
+          for (const l of leaves) {
+              await this.fetchAPI(`/api/leaves?id=${l.id}`, { method: 'DELETE' });
+          }
+
+          const salaries = await this.fetchAPI<SalaryRecord[]>('/api/salaries');
+          for (const s of salaries) {
+              await this.fetchAPI(`/api/salaries?id=${s.id}`, { method: 'DELETE' });
+          }
+      } catch (e) {
+          console.error("Cloud wipe failed (partially?)", e);
+      }
+      
+      console.log("✅ FACTORY RESET COMPLETE");
+      this.notifySyncListeners();
+  }
+
 
   // --- Sync Engine ---
 
