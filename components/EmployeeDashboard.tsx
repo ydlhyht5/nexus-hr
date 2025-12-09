@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Employee, LeaveRequest, LeaveStatus, SalaryRecord } from '../types';
 import { Card, Button, Input, Badge, CustomDatePicker, CustomMonthPicker, BarChart, UI as GlobalUI } from './UI';
