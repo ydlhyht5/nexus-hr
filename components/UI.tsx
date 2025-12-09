@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useRef } from 'react';
 import { X, CheckCircle, AlertCircle, Info, Calendar as CalendarIcon, ChevronLeft, ChevronRight, ChevronDown, Check } from 'lucide-react';
 
@@ -252,11 +251,6 @@ export const BarChart: React.FC<{ data: any[]; height?: number; colorStart?: str
                             <span className="text-orange-400 font-mono">-¥{Math.round(item.details.base - item.details.realBasic).toLocaleString()}</span>
                         </div>
                     )}
-
-                    <div className="flex justify-between gap-4 border-t border-white/5 pt-1 mt-1">
-                        <span className="text-gray-400">实发底薪</span>
-                        <span className="text-white font-mono">¥{Math.round(item.details.realBasic).toLocaleString()}</span>
-                    </div>
 
                     <div className="flex justify-between gap-4"><span className="text-gray-400">绩效奖金</span><span className="text-green-400 font-mono">+¥{Math.round(item.details.bonus).toLocaleString()}</span></div>
                     {item.details.attendanceBonus > 0 && <div className="flex justify-between gap-4"><span className="text-yellow-400">全勤奖</span><span className="text-yellow-400 font-mono">+¥{Math.round(item.details.attendanceBonus).toLocaleString()}</span></div>}
