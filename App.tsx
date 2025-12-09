@@ -277,6 +277,11 @@ const App: React.FC = () => {
     }
   };
 
+  const deleteLeaveRequest = async (id: string) => {
+    await db.deleteLeave(id);
+    setLeaveRequests(prev => prev.filter(r => r.id !== id));
+  };
+
   const saveSalary = async (record: SalaryRecord) => {
     await db.saveSalary(record);
     setSalaryRecords(prev => {
@@ -462,6 +467,7 @@ const App: React.FC = () => {
           onDeleteEmployee={deleteEmployee}
           onResetPassword={resetPassword}
           onUpdateLeaveStatus={updateLeaveStatus}
+          onDeleteLeave={deleteLeaveRequest}
           onSaveSalary={saveSalary}
           onImportData={handleImportData}
           onExportData={handleExportData}
