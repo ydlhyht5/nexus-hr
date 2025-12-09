@@ -405,7 +405,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
 
              {activeTab === 'salary' && (
                <div className="space-y-8">
-                 <Card>
+                 <Card className="z-30">
                     {/* Header with relative z-20 to fix dropdown overlap */}
                     <div className="flex justify-between items-center mb-6 relative z-20">
                         <h2 className="text-xl font-bold flex items-center gap-2">
@@ -541,7 +541,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({
                  </Card>
 
                  {/* Trend Chart (Switched to BarChart) */}
-                 <Card>
+                 <Card className="z-0">
                     <div className="flex justify-between items-center mb-6">
                         <h3 className="text-lg font-bold flex items-center gap-2">
                             <TrendingUp size={18} className="text-nexus-accent" /> 近期收入趋势
