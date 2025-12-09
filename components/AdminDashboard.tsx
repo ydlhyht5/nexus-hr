@@ -1,9 +1,8 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Employee, Gender, LeaveRequest, LeaveStatus, SalaryRecord } from '../types';
 import { Card, NeonCard, Button, Input, CustomSelect, CustomDatePicker, CustomMonthPicker, Badge, Modal, ToastContainer, ToastType, BarChart, Avatar, Pagination, UI as GlobalUI } from './UI';
 import { generatePinyinInitials } from '../services/geminiService';
-import { UserPlus, Calendar, Check, X, Pencil, Calculator, Save, User, KeyRound, Briefcase, DollarSign, Clock, Trash2, LockKeyhole, AlertTriangle, BarChart3, TrendingUp, Search, ChevronRight } from 'lucide-react';
+import { UserPlus, Calendar, Check, X, Pencil, Calculator, Save, User, KeyRound, Briefcase, DollarSign, Clock, Trash2, LockKeyhole, AlertTriangle, BarChart3, TrendingUp, Search, ChevronRight, RefreshCcw } from 'lucide-react';
 
 interface AdminDashboardProps {
   employees: Employee[];
@@ -18,6 +17,7 @@ interface AdminDashboardProps {
   onImportData: (file: File) => void;
   onExportData: () => void;
   onLogout: () => void;
+  onFactoryReset: () => void;
 }
 
 // ... Helper Functions ...
@@ -198,7 +198,7 @@ const SalaryRow: React.FC<{
          setManualDays(rec?.manualWorkDays?.toString() || '0');
          setAttBonus(rec?.attendanceBonus?.toString() || '0');
      }
-  }, [payoutMonth, salaryRecords, emp.id, isNotJoined]); // isDirty is read inside, not a dep that triggers re-run
+  }, [payoutMonth, salaryRecords, emp.id, isNotJoined]); 
 
   const handleInputChange = (setter: React.Dispatch<React.SetStateAction<string>>, value: string) => {
       setIsDirty(true); // Mark as dirty on any user input
@@ -220,21 +220,21 @@ const SalaryRow: React.FC<{
   // If not joined, standard is 0 for UI purposes, but we use baseSalarySetting for rate calc
   const standardSalaryForMonth = isNotJoined ? 0 : baseSalarySetting; 
   
-  // Leave Deduction Statistic (Reference only, not used for subtraction in new logic)
+  // Leave Deduction Statistic (Purely for visual reference in Tooltip)
   const strictLeaveDeduction = isNotJoined ? 0 : (dailyRate * leaveDays);
   
+  let finalPaidDays = 0;
   let calculatedBaseSalary = 0;
 
   if (manualDaysNum > 0) {
       // Manual Override: Pay strictly for manual days entered
-      calculatedBaseSalary = dailyRate * manualDaysNum;
+      finalPaidDays = manualDaysNum;
   } else {
       // System Logic: Strictly Day Rate * Actual Worked Days
-      // This correctly handles BOTH leave deductions AND partial month (late joiners)
-      // Example: Joined Nov 10. StandardDays=22. Potential=16. Leaves=0. Net=16.
-      // Salary = DailyRate * 16.
-      calculatedBaseSalary = dailyRate * systemNetWorkDays;
+      finalPaidDays = systemNetWorkDays;
   }
+  
+  calculatedBaseSalary = dailyRate * finalPaidDays;
 
   const bonus = salesNum * (rateNum / 100);
   const total = calculatedBaseSalary + bonus + attBonusNum;
@@ -263,9 +263,7 @@ const SalaryRow: React.FC<{
       updatedAt: Date.now()
     };
     onSaveSalary(record);
-    // Note: We intentionally DO NOT reset isDirty here. 
-    // We want the inputs to remain in "user-controlled" state until the user navigates away 
-    // or switches months, to prevent immediate flicker if the DB update lags.
+    setIsDirty(false); // Clean state after save
     addToast('工资条已保存', 'success');
   };
 
@@ -387,7 +385,7 @@ const SalaryRow: React.FC<{
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
     // ... Main Component logic ...
-    const { employees, leaveRequests, salaryRecords, onAddEmployee, onUpdateEmployee, onDeleteEmployee, onResetPassword, onUpdateLeaveStatus, onSaveSalary, onImportData, onExportData, onLogout } = props;
+    const { employees, leaveRequests, salaryRecords, onAddEmployee, onUpdateEmployee, onDeleteEmployee, onResetPassword, onUpdateLeaveStatus, onSaveSalary, onImportData, onExportData, onLogout, onFactoryReset } = props;
     const [activeTab, setActiveTab] = useState<'employees' | 'leaves' | 'salary' | 'reports'>('employees');
   const [toasts, setToasts] = useState<{ id: string; message: string; type: ToastType }[]>([]);
   const addToast = (message: string, type: ToastType) => {
@@ -692,6 +690,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
             <p className="text-nexus-muted text-xs mt-1 uppercase tracking-widest opacity-60">Nexus HR System v2.0</p>
           </div>
           <div className="flex items-center gap-4">
+            <Button variant="danger" onClick={onFactoryReset} size="sm" className="text-xs px-4" icon={<RefreshCcw size={12}/>}>
+               重置系统
+            </Button>
             <Button variant="secondary" onClick={onLogout} size="sm" className="text-xs px-4">
                退出系统
             </Button>
