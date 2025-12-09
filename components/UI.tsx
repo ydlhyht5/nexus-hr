@@ -152,11 +152,18 @@ export const CustomDatePicker: React.FC<{ label?: string; value: string; onChang
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+  
   const year = viewDate.getFullYear();
   const month = viewDate.getMonth();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const firstDay = new Date(year, month, 1).getDay();
+  
+  // FIXED: Start week on Monday (0=Mon, ... 6=Sun)
+  // Native getDay(): 0=Sun, 1=Mon ... 6=Sat
+  const firstDayRaw = new Date(year, month, 1).getDay();
+  const firstDay = firstDayRaw === 0 ? 6 : firstDayRaw - 1; // Convert to Monday start
+  
   const daysArray = Array(firstDay).fill(null).concat(Array.from({length: daysInMonth}, (_, i) => new Date(year, month, i+1)));
+  
   return (
     <div className={`flex flex-col gap-1.5 w-full ${className}`} ref={containerRef}>
       {label && <label className="text-xs font-semibold text-nexus-muted uppercase tracking-wider pl-1">{label}</label>}
@@ -171,10 +178,21 @@ export const CustomDatePicker: React.FC<{ label?: string; value: string; onChang
             <div className="text-sm font-bold text-white font-mono">{viewDate.toLocaleString('default', { month: 'short' })} {year}</div>
             <button onClick={(e) => {e.stopPropagation(); setViewDate(new Date(year, month+1, 1))}} className="p-1 rounded-lg hover:bg-white/10 text-nexus-muted hover:text-white transition-colors"><ChevronRight size={16}/></button>
           </div>
-          <div className="grid grid-cols-7 gap-1 text-center mb-2">{['Su','Mo','Tu','We','Th','Fr','Sa'].map(d => <div key={d} className="text-[10px] text-nexus-muted uppercase font-bold">{d}</div>)}</div>
+          {/* Updated Headers for Monday Start */}
+          <div className="grid grid-cols-7 gap-1 text-center mb-2">{['Mo','Tu','We','Th','Fr','Sa','Su'].map(d => <div key={d} className="text-[10px] text-nexus-muted uppercase font-bold">{d}</div>)}</div>
           <div className="grid grid-cols-7 gap-1">
             {daysArray.map((date, idx) => (
-              <button key={idx} onClick={(e) => { if(date) { e.stopPropagation(); onChange(date.toISOString().split('T')[0]); setIsOpen(false); }}} className={`h-8 w-8 rounded-lg text-xs font-medium transition-all duration-200 ${!date ? 'invisible' : value === date.toISOString().split('T')[0] ? 'bg-nexus-accent text-white shadow-neon' : 'text-white hover:bg-white/10'}`}>{date?.getDate()}</button>
+              <button key={idx} onClick={(e) => { 
+                  if(date) { 
+                      e.stopPropagation(); 
+                      // FIX: Manually construct date string to avoid timezone shift from toISOString()
+                      const y = date.getFullYear();
+                      const m = String(date.getMonth() + 1).padStart(2, '0');
+                      const d = String(date.getDate()).padStart(2, '0');
+                      onChange(`${y}-${m}-${d}`); 
+                      setIsOpen(false); 
+                  }
+              }} className={`h-8 w-8 rounded-lg text-xs font-medium transition-all duration-200 ${!date ? 'invisible' : value === `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}` ? 'bg-nexus-accent text-white shadow-neon' : 'text-white hover:bg-white/10'}`}>{date?.getDate()}</button>
             ))}
           </div>
         </div>
