@@ -235,6 +235,9 @@ class DatabaseService {
   async saveLeave(leave: LeaveRequest): Promise<void> {
     return this.saveData('leaves', '/api/leaves', leave);
   }
+  async deleteLeave(id: string): Promise<void> {
+    return this.deleteData('leaves', '/api/leaves', id);
+  }
 
   // Salaries
   async getAllSalaries(): Promise<SalaryRecord[]> {
