@@ -21,7 +21,7 @@ interface AdminDashboardProps {
   onFactoryReset: () => void;
 }
 
-// ... Helper Functions ...
+// --- Helper Functions ---
 const getPreviousMonth = (monthStr: string): string => {
     const [year, month] = monthStr.split('-').map(Number);
     const date = new Date(year, month - 2, 1); 
@@ -142,7 +142,7 @@ const calculateLeaveDaysInMonth = (requests: LeaveRequest[], empId: string, mont
     return leaveWorkDays;
 };
 
-// ... SalaryRow Component ...
+// --- SalaryRow Component ---
 const SalaryRow: React.FC<{
   emp: Employee;
   payoutMonth: string;
