@@ -168,7 +168,11 @@ export const CustomDatePicker: React.FC<{ label?: string; value: string; onChang
   
   // FIXED: Start week on Monday (0=Mon, ... 6=Sun)
   const firstDayRaw = new Date(year, month, 1).getDay();
-  const firstDay = firstDayRaw === 0 ? 6 : firstDayRaw - 1; 
+  // JS getDay(): Sun=0, Mon=1...
+  // We want Mon=0, Sun=6.
+  // Mon(1) -> 0. (1+6)%7 = 0.
+  // Sun(0) -> 6. (0+6)%7 = 6.
+  const firstDay = (firstDayRaw + 6) % 7;
   
   const daysArray = Array(firstDay).fill(null).concat(Array.from({length: daysInMonth}, (_, i) => new Date(year, month, i+1)));
   
